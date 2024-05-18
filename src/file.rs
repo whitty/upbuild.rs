@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use super::{Error, Result};
+use super::exec::RetCode;
 
 #[derive(Debug, PartialEq)]
 enum Flags {
@@ -9,7 +10,7 @@ enum Flags {
     Tags(HashSet<String>),
     Manual,
     Outfile(String),
-    RetMap(HashMap<isize, isize>),
+    RetMap(HashMap<RetCode, RetCode>),
     Cd(String)
 }
 
@@ -19,7 +20,7 @@ pub struct Cmd {
     tags: HashSet<String>,
     cd: Option<String>,
     outfile: Option<String>,
-    retmap: HashMap<isize, isize>,
+    retmap: HashMap<RetCode, RetCode>,
     disabled: bool,
     manual: bool,
     recurse: bool,
@@ -74,12 +75,12 @@ enum Line {
 }
 
 // Parse a single @retmap=entry
-fn parse_retmap(def: &str) -> Result<HashMap<isize, isize>> {
-    let mut h: HashMap<isize, isize> = HashMap::new();
+fn parse_retmap(def: &str) -> Result<HashMap<RetCode, RetCode>> {
+    let mut h: HashMap<RetCode, RetCode> = HashMap::new();
     for entry in def.split(',') {
         let parts = entry.split_once("=>").ok_or(Error::InvalidRetMapDefinition(def.to_string()))?;
-        let a = str::parse::<isize>(parts.0).map_err(|_| Error::InvalidRetMapDefinition(parts.0.to_string()))?;
-        let b = str::parse::<isize>(parts.1).map_err(|_| Error::InvalidRetMapDefinition(parts.1.to_string()))?;
+        let a = str::parse::<RetCode>(parts.0).map_err(|_| Error::InvalidRetMapDefinition(parts.0.to_string()))?;
+        let b = str::parse::<RetCode>(parts.1).map_err(|_| Error::InvalidRetMapDefinition(parts.1.to_string()))?;
         h.insert(a, b);
     }
     Ok(h)
