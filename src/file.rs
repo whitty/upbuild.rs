@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 
 use super::{Error, Result};
 
@@ -12,7 +13,7 @@ enum Flags {
     Cd(String)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Cmd {
     args: Vec<String>,
     tags: HashSet<String>,
@@ -35,18 +36,13 @@ impl Cmd {
         let args = vec![exe];
         Cmd {
             args,
-            tags: HashSet::new(),
-            cd: None,
-            outfile: None,
-            retmap: HashMap::new(),
-            disabled: false,
-            manual: false,
             recurse,
+            ..Default::default()
         }
     }
 
-    pub fn directory(self) -> std::path::PathBuf {
-        let mut path = std::path::PathBuf::from(self.cd.unwrap_or(String::from(".")));
+    pub fn directory(self) -> PathBuf {
+        let mut path = PathBuf::from(self.cd.unwrap_or(String::from(".")));
         if self.recurse {
             path.pop();
         }
