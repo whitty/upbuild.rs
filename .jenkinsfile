@@ -1,0 +1,63 @@
+def build_os_vers = ["22.04", "24.04"]
+
+def parallel_versions = [:]
+
+for (ver in build_os_vers) {
+  def version = ver;
+
+  parallel_versions[version] = {
+    node("${version} && rustup") {
+      def src = null;
+
+      withEnv(["PATH+RUST=${HOME}/.cargo/bin"]) {
+
+        stage("${version}-preparation") {
+          src = checkout(scm)
+        }
+
+        stage("${version}-build") {
+          sh "cargo build"
+        }
+
+        stage("${version}-check") {
+          sh "cargo check --message-format json > target/report-${version}.log"
+          recordIssues(aggregatingResults: true, publishAllIssues: true,
+                       tools: [cargo(id: "cargo-check-${version}",
+                                     name: "Check ${version}",
+                                     pattern: "**/target/report-${version}.log")])
+        }
+
+        stage("${version}-test") {
+          warnError("test") {
+            sh "cargo test"
+          }
+        }
+
+        stage("${version}-clippy") {
+          warnError("clippy") {
+            sh "cargo clippy --message-format json > target/report-${version}.log"
+            recordIssues(aggregatingResults: true, publishAllIssues: true,
+                         tools: [cargo(id: "cargo-clippy-${version}",
+                                       name: "Clippy ${version}",
+                                       pattern: "**/target/report-${version}.log")])
+          }
+        }
+
+        stage("${version}-run") {
+          for (cmd in [
+            '--ub-print',
+          ]) {
+            warnError("run") {
+              sh "cargo run -- $cmd"
+            }
+          }
+        }
+
+      } // withEnv
+
+    } //node
+
+  } // parallel_versions
+
+} // versions
+parallel parallel_versions
