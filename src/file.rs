@@ -50,6 +50,11 @@ impl Cmd {
         path
     }
 
+    pub fn map_code(&self, c: RetCode) ->RetCode {
+        *self.retmap.get(&c)
+            .unwrap_or(&c)
+    }
+
     pub fn args(&self) -> &Vec<String> {
         &self.args
     }
@@ -361,6 +366,47 @@ upbuild
         assert_eq!(file.commands[1].cd, None);
         assert_eq!(file.commands[1].outfile, None);
         assert_eq!(file.commands[1].args, vec!["upbuild"]);
+    }
+
+    #[test]
+    fn test_retmap() {
+
+        let s = r"uv4
+# uv4 returns 1 if errors occurred - our library includes
+# suck so map 1 to a success
+@retmap=1=>0
+# Also sucks as it outputs to a file
+@outfile=log.txt
+-j0
+-b
+project.uvproj
+-o
+log.txt
+";
+
+        let file = parse(s);
+        assert_eq!(1, file.commands.len());
+        let cmd = &file.commands[0];
+
+        assert!(cmd.tags.is_empty());
+        assert!(!cmd.disabled);
+        assert!(!cmd.manual);
+        assert!(!cmd.recurse);
+        assert_eq!(cmd.retmap, HashMap::from([(1, 0)]));
+        assert_eq!(cmd.cd, None);
+        assert_eq!(cmd.outfile, Some(String::from("log.txt")));
+        assert_eq!(cmd.args, vec!["uv4", "-j0", "-b", "project.uvproj", "-o", "log.txt"]);
+
+        for (v, exp) in [
+            (0,0),
+            (1,0),
+            (2,2),
+            (-1,-1),
+            (10000,10000),
+            (-10000,-10000),
+        ] {
+            assert_eq!(cmd.map_code(v), exp, "Mapping {} expected {}", v, exp);
+        }
     }
 
     #[test]
