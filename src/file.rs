@@ -33,15 +33,15 @@ impl Cmd {
     fn new(exe: String) -> Cmd {
         let recurse = exe == "upbuild";
         let args = vec![exe];
-        return Cmd {
-            args: args,
+        Cmd {
+            args,
             tags: HashSet::new(),
             cd: None,
-            disabled: false,
-            manual: false,
-            recurse: recurse,
             outfile: None,
             retmap: HashMap::new(),
+            disabled: false,
+            manual: false,
+            recurse,
         }
     }
 
@@ -122,10 +122,9 @@ fn parse_line(l: &str) -> Result<Line> {
     }
 }
 
-fn split_flag<'a>(l: &'a str) -> Result<(&'a str, &'a str)> {
-    if l.starts_with('@') {
-        let l = &l[1..];
-        return Ok(l.split_once('=').unwrap_or((l, "")));
+fn split_flag(l: &str) -> Result<(&str, &str)> {
+    if let Some(rest) = l.strip_prefix('@') {
+        return Ok(rest.split_once('=').unwrap_or((rest, "")));
     }
     Err(Error::InvalidTag(l.to_string()))
 }
@@ -185,7 +184,7 @@ impl ClassicFile {
             None => Err(Error::EmptyEntry)?,
         }
 
-        return Ok(ClassicFile{
+        Ok(ClassicFile{
             commands: entries,
         })
     }
