@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use super::{Error, Result};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum Flags {
     Disable,
     Tags(HashSet<String>),
@@ -19,6 +19,7 @@ pub struct Cmd {
     cd: Option<String>,
     outfile: Option<String>,
     retmap: HashMap<isize, isize>,
+    disabled: bool,
     manual: bool,
     recurse: bool,
 }
@@ -36,11 +37,24 @@ impl Cmd {
             args: args,
             tags: HashSet::new(),
             cd: None,
+            disabled: false,
             manual: false,
             recurse: recurse,
             outfile: None,
             retmap: HashMap::new(),
         }
+    }
+
+    pub fn directory(self) -> std::path::PathBuf {
+        let mut path = std::path::PathBuf::from(self.cd.unwrap_or(String::from(".")));
+        if self.recurse {
+            path.pop();
+        }
+        path
+    }
+
+    pub fn args(&self) -> &Vec<String> {
+        &self.args
     }
 }
 
@@ -49,7 +63,13 @@ pub struct ClassicFile {
     commands: Vec<Cmd>,
 }
 
-#[derive(Debug)]
+impl ClassicFile {
+    pub fn len(&self) {
+        self.commands.len();
+    }
+}
+
+#[derive(Debug, PartialEq)]
 enum Line {
     Flag(Flags),
     Arg(String),
@@ -79,9 +99,15 @@ fn parse_line(l: &str) -> Result<Line> {
                 Ok(Line::Comment)
             } else if l.starts_with('@') {
                 match split_flag(l)? {
-                    ("tags", tags) => Ok(Line::Flag(Flags::Tags(tags.split(',')
-                                                                .map(|x| x.to_string())
-                                                                .collect()))),
+                    ("tags", tags) => Ok(Line::Flag(Flags::Tags(
+                        if tags.is_empty() { // explicitly don't split ""
+                            HashSet::new()
+                        } else {
+                            tags.split(',')
+                                .map(|x| x.to_string())
+                                .collect()
+                        }
+                    ))),
                     ("retmap", map) => Ok(Line::Flag(Flags::RetMap(parse_retmap(map)?))),
                     ("outfile", outfile) => Ok(Line::Flag(Flags::Outfile(outfile.to_string()))),
                     ("cd", dir) => Ok(Line::Flag(Flags::Cd(dir.to_string()))),
@@ -106,7 +132,7 @@ fn split_flag<'a>(l: &'a str) -> Result<(&'a str, &'a str)> {
 
 impl ClassicFile {
 
-    pub fn parse_iter<'a, I>(lines: I) -> Result<ClassicFile>
+    pub fn parse_lines<'a, I>(lines: I) -> Result<ClassicFile>
     where I: Iterator<Item=&'a str>
     {
         let mut e: Option<Cmd> = None;
@@ -131,7 +157,7 @@ impl ClassicFile {
                         Some(ref mut cmd) => {
                             // TODO detect duplicates
                             match f {
-                                Flags::Disable => (), // Just drop it
+                                Flags::Disable => cmd.disabled = true,
                                 Flags::Manual => cmd.manual = true,
                                 Flags::Tags(tags) => cmd.tags = tags,
                                 Flags::Outfile(filename) => cmd.outfile = Some(filename),
@@ -191,6 +217,47 @@ mod tests {
         assert!(parse_retmap("1=>0,0").is_err());
     }
 
+    fn string_set<const N: usize>(list: [&str; N]) -> HashSet<String> {
+        HashSet::from(list.map(|s| s.to_string()))
+    }
+
+    #[test]
+    fn test_parse_line_flags() {
+        assert_eq!(Line::Flag(Flags::Disable), parse_line("@disable").expect("should succeed"));
+        assert!(parse_retmap("@disable=").is_err());
+        assert!(parse_retmap("@disabl").is_err());
+
+        assert_eq!(Line::Flag(Flags::Manual), parse_line("@manual").expect("should succeed"));
+        assert!(parse_retmap("@manual=").is_err());
+        assert!(parse_retmap("@manual").is_err());
+
+        assert_eq!(Line::Flag(Flags::RetMap(HashMap::from([(1, 0), (0, 1)]))),
+                   parse_line("@retmap=0=>1,1=>0").expect("should succeed"));
+        assert!(parse_retmap("@retmap=0=>1,").is_err());
+        assert!(parse_retmap("@retmap").is_err());
+
+        assert_eq!(Line::Flag(Flags::Cd("/path/to".into())), parse_line("@cd=/path/to").expect("should succeed"));
+        assert!(parse_retmap("@cd=").is_err());
+        assert!(parse_retmap("@cd").is_err());
+
+        assert_eq!(Line::Flag(Flags::Outfile("out.txt".into())), parse_line("@outfile=out.txt").expect("should succeed"));
+        assert!(parse_retmap("@outfile=").is_err());
+        assert!(parse_retmap("@outfile").is_err());
+
+        assert_eq!(Line::Flag(Flags::Tags(string_set(["foo", "bar", "bat"]))), parse_line("@tags=foo,bar,bat").expect("should succeed"));
+        assert_eq!(Line::Flag(Flags::Tags(HashSet::new())), parse_line("@tags=").expect("should succeed"));
+        assert_eq!(Line::Flag(Flags::Tags(string_set(["foo", "bar=bat"]))), parse_line("@tags=foo,bar=bat").expect("should succeed"));
+        assert!(parse_retmap("@tags").is_err());
+    }
+
+    fn parse(s: &str) -> ClassicFile {
+        // basic test structure - printing in case of failure
+        println!("'{}'", s);
+        let file = ClassicFile::parse_lines(s.split_terminator("\n")).unwrap();
+        println!("{:#?}", file);
+        file
+    }
+
     #[test]
     fn test_tags_parsing() {
 
@@ -207,9 +274,35 @@ make
 @tags=release,host
 install
 ";
-        println!("'{}'", s);
-        let file = ClassicFile::parse_iter(s.split("\n")).unwrap();
-        println!("{:#?}", file);
+        let file = parse(s);
+
+        assert_eq!(3, file.commands.len());
+        assert_eq!(file.commands[0].tags, string_set(["host"]));
+        assert!(!file.commands[0].disabled);
+        assert!(!file.commands[0].manual);
+        assert!(!file.commands[0].recurse);
+        assert!(file.commands[0].retmap.is_empty());
+        assert_eq!(file.commands[0].cd, None);
+        assert_eq!(file.commands[0].outfile, None);
+        assert_eq!(file.commands[0].args, vec!["make", "tests"]);
+
+        assert_eq!(file.commands[1].tags, string_set(["target"]));
+        assert!(!file.commands[1].disabled);
+        assert!(!file.commands[1].manual);
+        assert!(!file.commands[1].recurse);
+        assert!(file.commands[1].retmap.is_empty());
+        assert_eq!(file.commands[1].cd, None);
+        assert_eq!(file.commands[1].outfile, None);
+        assert_eq!(file.commands[1].args, vec!["make", "cross"]);
+
+        assert_eq!(file.commands[2].tags, string_set(["release", "host"]));
+        assert!(!file.commands[2].disabled);
+        assert!(file.commands[2].manual);
+        assert!(!file.commands[2].recurse);
+        assert!(file.commands[2].retmap.is_empty());
+        assert_eq!(file.commands[2].cd, None);
+        assert_eq!(file.commands[2].outfile, None);
+        assert_eq!(file.commands[2].args, vec!["make", "install"]);
     }
 
     #[test]
@@ -222,7 +315,26 @@ make
 @disable
 install
 ";
-        ClassicFile::parse_iter(s.split("\n")).unwrap();
+        let file = parse(s);
+        assert_eq!(2, file.commands.len());
+
+        assert!(file.commands[0].tags.is_empty());
+        assert!(!file.commands[0].disabled);
+        assert!(!file.commands[0].manual);
+        assert!(!file.commands[0].recurse);
+        assert!(file.commands[0].retmap.is_empty());
+        assert_eq!(file.commands[0].cd, None);
+        assert_eq!(file.commands[0].outfile, None);
+        assert_eq!(file.commands[0].args, vec!["make", "tests"]);
+
+        assert!(file.commands[1].tags.is_empty());
+        assert!(file.commands[1].disabled);
+        assert!(!file.commands[1].manual);
+        assert!(!file.commands[1].recurse);
+        assert!(file.commands[1].retmap.is_empty());
+        assert_eq!(file.commands[1].cd, None);
+        assert_eq!(file.commands[1].outfile, None);
+        assert_eq!(file.commands[1].args, vec!["make", "install"]);
     }
 
     #[test]
@@ -233,7 +345,26 @@ install
 &&
 upbuild
 ";
-        ClassicFile::parse_iter(s.split("\n")).unwrap();
+        let file = parse(s);
+        assert_eq!(2, file.commands.len());
+
+        assert!(file.commands[0].tags.is_empty());
+        assert!(!file.commands[0].disabled);
+        assert!(!file.commands[0].manual);
+        assert!(!file.commands[0].recurse);
+        assert!(file.commands[0].retmap.is_empty());
+        assert_eq!(file.commands[0].cd, None);
+        assert_eq!(file.commands[0].outfile, None);
+        assert_eq!(file.commands[0].args, vec!["make", "-j8"]);
+
+        assert!(file.commands[1].tags.is_empty());
+        assert!(!file.commands[1].disabled);
+        assert!(!file.commands[1].manual);
+        assert!(file.commands[1].recurse);
+        assert!(file.commands[1].retmap.is_empty());
+        assert_eq!(file.commands[1].cd, None);
+        assert_eq!(file.commands[1].outfile, None);
+        assert_eq!(file.commands[1].args, vec!["upbuild"]);
     }
 
     #[test]
@@ -245,7 +376,26 @@ upbuild
 upbuild
 @cd=/path/to/the/rest
 ";
-        ClassicFile::parse_iter(s.split("\n")).unwrap();
+        let file = parse(s);
+        assert_eq!(2, file.commands.len());
+
+        assert!(file.commands[0].tags.is_empty());
+        assert!(!file.commands[0].disabled);
+        assert!(!file.commands[0].manual);
+        assert!(!file.commands[0].recurse);
+        assert!(file.commands[0].retmap.is_empty());
+        assert_eq!(file.commands[0].cd, None);
+        assert_eq!(file.commands[0].outfile, None);
+        assert_eq!(file.commands[0].args, vec!["make", "-j8"]);
+
+        assert!(file.commands[1].tags.is_empty());
+        assert!(!file.commands[1].disabled);
+        assert!(!file.commands[1].manual);
+        assert!(file.commands[1].recurse);
+        assert!(file.commands[1].retmap.is_empty());
+        assert_eq!(file.commands[1].cd, Some(String::from("/path/to/the/rest")));
+        assert_eq!(file.commands[1].outfile, None);
+        assert_eq!(file.commands[1].args, vec!["upbuild"]);
     }
 
 }
