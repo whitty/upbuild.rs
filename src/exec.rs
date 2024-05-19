@@ -91,7 +91,7 @@ impl Runner for ProcessRunner {
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::{RefCell, RefMut}, rc::Rc};
+    use std::{cell::{RefCell, RefMut}, collections::VecDeque, rc::Rc};
 
     use super::*;
 
@@ -100,13 +100,17 @@ mod tests {
         data: Rc<RefCell<TestData>>
     }
 
+    #[derive(Default, Debug, Clone)]
+    struct RunData {
+        cmd: Vec<String>,
+        cd: Option<PathBuf>,
+    }
+
     #[derive(Default, Debug)]
     struct TestData {
-        // TODO - just a single one!
-        cmd: Option<Vec<String>>,
-        cd: Option<PathBuf>,
-        outfile: Option<PathBuf>,
-        result: Option<Result<RetCode>>,
+        run_data: Vec<RunData>,
+        outfile: Vec<PathBuf>,
+        result: VecDeque<Result<RetCode>>,
     }
 
     impl TestRunner {
@@ -120,32 +124,47 @@ mod tests {
     impl Runner for TestRunner {
         fn run(&self, cmd: Vec<String>, cd: Option<PathBuf>) -> Result<RetCode> {
             let mut data = self.data.borrow_mut();
-            data.cmd.replace(cmd);
-            data.cd = cd;
-            data.result.take().expect("Result wasn't set")
+            data.run_data.push(RunData{cmd, cd});
+            data.result.pop_front().expect("Result wasn't set")
         }
 
         fn display_output(&self, file: &Path) -> Result<()>
         {
             let mut data = self.data.borrow_mut();
-            data.outfile.replace(PathBuf::from(file));
+            data.outfile.push(PathBuf::from(file));
             Ok(())
         }
     }
 
     fn set_return_data(test_data: &Rc<RefCell<TestData>>, result: Result<RetCode>) {
         let mut data: RefMut<'_, _> = test_data.borrow_mut();
-        data.result.replace(result);
+        data.result.clear();
+        data.result.push_back(result)
     }
 
-    fn get_call_data(test_data: &Rc<RefCell<TestData>>) -> (Option<Vec<String>>, Option<PathBuf>) {
+    fn get_run_data(test_data: &Rc<RefCell<TestData>>) -> Vec<RunData> {
         let mut data: RefMut<'_, _> = test_data.borrow_mut();
-        (data.cmd.take(), data.cd.take())
+        let ret = data.run_data.clone();
+        data.run_data.clear();
+        ret
+    }
+
+    fn get_run_data_1(test_data: &Rc<RefCell<TestData>>) -> (Option<Vec<String>>, Option<PathBuf>) {
+        match get_run_data(test_data).split_first() {
+            Some((first, rest)) => {
+                assert!(rest.is_empty(), "too many results {:#?}", rest);
+                return (Some(first.cmd.clone()), first.cd.clone());
+            },
+            None => {
+                println!("No first?");
+                (None, None)
+            }
+        }
     }
 
     fn get_outfile(test_data: &Rc<RefCell<TestData>>) -> Option<PathBuf> {
         let mut data: RefMut<'_, _> = test_data.borrow_mut();
-        data.outfile.take()
+        data.outfile.pop()
     }
 
     fn simple_test<const N: usize>(
@@ -198,7 +217,7 @@ mod tests {
             },
         }
 
-        let (cmd, cd) = get_call_data(&test_data);
+        let (cmd, cd) = get_run_data_1(&test_data);
         println!("cmd={:#?} cd={:#?}", cmd, cd);
         assert_eq!(cmd.unwrap(), expected_cmd);
         assert_eq!(cd, expected_cd);
