@@ -42,12 +42,16 @@ impl Cmd {
         }
     }
 
-    pub fn directory(self) -> PathBuf {
-        let mut path = PathBuf::from(self.cd.unwrap_or(String::from(".")));
-        if self.recurse {
-            path.pop();
-        }
-        path
+    pub fn directory(&self) -> Option<PathBuf> {
+        match self.cd {
+            Some(ref d) => return Some(PathBuf::from(d)),
+            None => {
+                if self.recurse {
+                    return Some(PathBuf::from(".."));
+                }
+                return None;
+            },
+        };
     }
 
     pub fn map_code(&self, c: RetCode) ->RetCode {
@@ -375,6 +379,7 @@ upbuild
         assert_eq!(file.commands[0].cd, None);
         assert_eq!(file.commands[0].outfile, None);
         assert_eq!(file.commands[0].args, vec!["make", "-j8"]);
+        assert_eq!(file.commands[0].directory(), None);
 
         assert!(file.commands[1].tags.is_empty());
         assert!(!file.commands[1].disabled);
@@ -384,6 +389,7 @@ upbuild
         assert_eq!(file.commands[1].cd, None);
         assert_eq!(file.commands[1].outfile, None);
         assert_eq!(file.commands[1].args, vec!["upbuild"]);
+        assert_eq!(file.commands[1].directory().expect("should exist"), std::path::Path::new(".."));
     }
 
     #[test]
@@ -447,6 +453,7 @@ upbuild
         assert_eq!(file.commands[0].cd, None);
         assert_eq!(file.commands[0].outfile, None);
         assert_eq!(file.commands[0].args, vec!["make", "-j8"]);
+        assert_eq!(file.commands[0].directory(), None);
 
         assert!(file.commands[1].tags.is_empty());
         assert!(!file.commands[1].disabled);
@@ -456,6 +463,7 @@ upbuild
         assert_eq!(file.commands[1].cd, Some(String::from("/path/to/the/rest")));
         assert_eq!(file.commands[1].outfile, None);
         assert_eq!(file.commands[1].args, vec!["upbuild"]);
+        assert_eq!(file.commands[1].directory().expect("should exist"), std::path::Path::new("/path/to/the/rest"));
     }
 
     fn check_tags<const N: usize>(file: &ClassicFile, tags: HashSet<String>, expected: [bool; N]) {
