@@ -63,8 +63,8 @@ impl Cmd {
             .unwrap_or(&c)
     }
 
-    pub fn args(&self) -> &Vec<String> {
-        &self.args
+    pub fn clone_args(&self) -> Vec<String> {
+        self.args.clone()
     }
 
     pub fn enabled(&self, tags: &HashSet<String>) -> bool {
@@ -88,13 +88,7 @@ impl Cmd {
 
 #[derive(Debug)]
 pub struct ClassicFile {
-    commands: Vec<Cmd>,
-}
-
-impl ClassicFile {
-    pub fn len(&self) {
-        self.commands.len();
-    }
+    pub(crate) commands: Vec<Cmd>, // TODO - pub(crate) is lazy)
 }
 
 #[derive(Debug, PartialEq)]
@@ -215,6 +209,10 @@ impl ClassicFile {
         Ok(ClassicFile{
             commands: entries,
         })
+    }
+
+    pub fn len(&self) {
+        self.commands.len();
     }
 }
 
