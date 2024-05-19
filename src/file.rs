@@ -58,6 +58,24 @@ impl Cmd {
     pub fn args(&self) -> &Vec<String> {
         &self.args
     }
+
+    pub fn enabled(&self, tags: &HashSet<String>) -> bool {
+        if self.disabled {
+            return false;
+        }
+        let no_tags = tags.is_empty();
+        if self.manual {
+            if no_tags || tags.is_disjoint(&self.tags) {
+                return false;
+            }
+        }
+
+        if ! no_tags {
+            // There are some tags - must match
+            return !tags.is_disjoint(&self.tags);
+        }
+        true
+    }
 }
 
 #[derive(Debug)]
@@ -438,6 +456,54 @@ upbuild
         assert_eq!(file.commands[1].cd, Some(String::from("/path/to/the/rest")));
         assert_eq!(file.commands[1].outfile, None);
         assert_eq!(file.commands[1].args, vec!["upbuild"]);
+    }
+
+    fn check_tags<const N: usize>(file: &ClassicFile, tags: HashSet<String>, expected: [bool; N]) {
+        println!("Expecting {:?} tags to result in {:?}", tags, expected);
+        assert!(file.commands.iter()
+                .map(|x| x.enabled(&tags))
+                .eq(expected.into_iter()));
+    }
+
+    #[test]
+    fn test_tags_selection() {
+
+        let s = r"make
+@tags=host
+tests
+&&
+make
+@tags=target
+cross
+&&
+make
+@manual
+@tags=release,host
+install
+";
+        let file = parse(s);
+
+        assert_eq!(3, file.commands.len());
+        assert_eq!(file.commands[0].tags, string_set(["host"]));
+        assert!(!file.commands[0].disabled);
+        assert!(!file.commands[0].manual);
+
+        assert_eq!(file.commands[1].tags, string_set(["target"]));
+        assert!(!file.commands[1].disabled);
+        assert!(!file.commands[1].manual);
+
+        assert_eq!(file.commands[2].tags, string_set(["release", "host"]));
+        assert!(!file.commands[2].disabled);
+        assert!(file.commands[2].manual);
+        assert!(!file.commands[2].recurse);
+
+        check_tags(&file, string_set([]), [true, true, false]);
+        check_tags(&file, string_set(["host"]), [true, false, true]);
+        check_tags(&file, string_set(["release"]), [false, false, true]);
+        check_tags(&file, string_set(["target"]), [false, true, false]);
+        check_tags(&file, string_set(["release", "host"]), [true, false, true]);
+        check_tags(&file, string_set(["release", "target"]), [false, true, true]);
+        check_tags(&file, string_set(["release", "target", "host"]), [true, true, true]);
     }
 
 }
