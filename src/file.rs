@@ -42,6 +42,10 @@ impl Cmd {
         }
     }
 
+    pub fn out_file(&self) -> Option<PathBuf> {
+        self.outfile.as_ref().map(|ref f| PathBuf::from(f))
+    }
+
     pub fn directory(&self) -> Option<PathBuf> {
         match self.cd {
             Some(ref d) => return Some(PathBuf::from(d)),
@@ -420,6 +424,7 @@ log.txt
         assert_eq!(cmd.cd, None);
         assert_eq!(cmd.outfile, Some(String::from("log.txt")));
         assert_eq!(cmd.args, vec!["uv4", "-j0", "-b", "project.uvproj", "-o", "log.txt"]);
+        assert_eq!(cmd.out_file(), Some(PathBuf::from("log.txt")));
 
         for (v, exp) in [
             (0,0),
