@@ -1,0 +1,11 @@
+uv4
+# uv4 returns 1 if errors occurred - our library includes
+# suck so map 1 to a success
+@retmap=1=>0
+# Also sucks as it outputs to a file
+@outfile=log.txt
+-j0
+-b
+project.uvproj
+-o
+log.txt
