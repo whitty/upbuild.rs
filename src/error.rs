@@ -8,6 +8,9 @@ pub enum Error {
     FlagBeforeCommand(String),
     NoCommands,
     FailedToExec(std::io::Error),
+    IoError(std::io::Error),
+    InvalidDir(String),
+    NotFound(String),
     ExitWithExitCode(RetCode),
     ExitWithSignal(RetCode),
 }
@@ -27,6 +30,12 @@ impl std::fmt::Display for Error {
                 write!(f, "No commands in file"),
             Error::FailedToExec(e) =>
                  write!(f, "Failed to exec: {}", e),
+            Error::IoError(e) =>
+                write!(f, "{}", e),
+            Error::InvalidDir(p) =>
+                write!(f, "Invalid directory '{}'", p),
+            Error::NotFound(p) =>
+                write!(f, "Unable to locate .upbuild from '{}'", p),
             Error::ExitWithExitCode(c) =>
                  write!(f, "Process exitted with code: {}", c),
             Error::ExitWithSignal(c) =>
@@ -41,10 +50,17 @@ impl std::error::Error for Error {
             Error::InvalidTag(_) | Error::InvalidRetMapDefinition(_) |
             Error::EmptyEntry | Error::FlagBeforeCommand(_) |
             Error::NoCommands | Error::ExitWithExitCode(_) |
-            Error::ExitWithSignal(_)
+            Error::ExitWithSignal(_) | Error::InvalidDir(_) | Error::NotFound(_)
                 => None,
 
             Error::FailedToExec(ref e) => Some(e),
+            Error::IoError(ref e) => Some(e),
         }
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(err: std::io::Error) -> Error {
+        Error::IoError(err)
     }
 }
