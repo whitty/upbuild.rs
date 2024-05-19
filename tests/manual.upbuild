@@ -1,0 +1,12 @@
+make
+@tags=host
+tests
+&&
+make
+@tags=target
+cross
+&&
+make
+@manual
+@tags=release,host
+install

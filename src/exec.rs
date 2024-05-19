@@ -95,11 +95,6 @@ mod tests {
 
     use super::*;
 
-    #[derive(Debug)]
-    struct TestRunner {
-        data: Rc<RefCell<TestData>>
-    }
-
     #[derive(Default, Debug, Clone)]
     struct RunData {
         cmd: Vec<String>,
@@ -108,9 +103,22 @@ mod tests {
 
     #[derive(Default, Debug)]
     struct TestData {
-        run_data: Vec<RunData>,
-        outfile: Vec<PathBuf>,
+        run_data: VecDeque<RunData>,
+        outfile: VecDeque<PathBuf>,
         result: VecDeque<Result<RetCode>>,
+    }
+
+    impl TestData {
+        fn clear(&mut self) {
+            self.run_data.clear();
+            self.outfile.clear();
+            self.result.clear();
+        }
+    }
+
+    #[derive(Debug)]
+    struct TestRunner {
+        data: Rc<RefCell<TestData>>
     }
 
     impl TestRunner {
@@ -124,133 +132,204 @@ mod tests {
     impl Runner for TestRunner {
         fn run(&self, cmd: Vec<String>, cd: Option<PathBuf>) -> Result<RetCode> {
             let mut data = self.data.borrow_mut();
-            data.run_data.push(RunData{cmd, cd});
+            println!("run cmd={:#?} cd={:#?} result={:#?}", cmd, cd, data.result);
+            data.run_data.push_back(RunData{cmd, cd});
             data.result.pop_front().expect("Result wasn't set")
         }
 
         fn display_output(&self, file: &Path) -> Result<()>
         {
             let mut data = self.data.borrow_mut();
-            data.outfile.push(PathBuf::from(file));
+            data.outfile.push_back(PathBuf::from(file));
             Ok(())
         }
     }
 
-    fn set_return_data(test_data: &Rc<RefCell<TestData>>, result: Result<RetCode>) {
-        let mut data: RefMut<'_, _> = test_data.borrow_mut();
-        data.result.clear();
-        data.result.push_back(result)
+    struct TestRun {
+        test_data: Rc<RefCell<TestData>>,
     }
 
-    fn get_run_data(test_data: &Rc<RefCell<TestData>>) -> Vec<RunData> {
-        let mut data: RefMut<'_, _> = test_data.borrow_mut();
-        let ret = data.run_data.clone();
-        data.run_data.clear();
-        ret
-    }
-
-    fn get_run_data_1(test_data: &Rc<RefCell<TestData>>) -> (Option<Vec<String>>, Option<PathBuf>) {
-        match get_run_data(test_data).split_first() {
-            Some((first, rest)) => {
-                assert!(rest.is_empty(), "too many results {:#?}", rest);
-                return (Some(first.cmd.clone()), first.cd.clone());
-            },
-            None => {
-                println!("No first?");
-                (None, None)
+    impl TestRun {
+        fn new() -> TestRun {
+            TestRun {
+                test_data: Rc::new(RefCell::new(TestData::default())),
             }
         }
-    }
 
-    fn get_outfile(test_data: &Rc<RefCell<TestData>>) -> Option<PathBuf> {
-        let mut data: RefMut<'_, _> = test_data.borrow_mut();
-        data.outfile.pop()
-    }
-
-    fn simple_test<const N: usize>(
-        file_data: &str, result: Result<RetCode>, expected_result: Result<()>,
-        expected_cmd: [&str; N], expected_cd: Option<PathBuf>)
-    {
-        simple_test_(file_data, result, expected_result, expected_cmd, expected_cd, None)
-    }
-
-    fn simple_test_outfile<const N: usize>(
-        file_data: &str, result: Result<RetCode>, expected_result: Result<()>,
-        expected_cmd: [&str; N], expected_cd: Option<PathBuf>, expected_outfile: &str)
-    {
-        let outfile = PathBuf::from(expected_outfile);
-        simple_test_(file_data, result, expected_result, expected_cmd, expected_cd, Some(&outfile))
-    }
-
-    fn simple_test_<const N: usize>(
-        file_data: &str, result: Result<RetCode>, expected_result: Result<()>,
-        expected_cmd: [&str; N], expected_cd: Option<PathBuf>, expected_outfile: Option<&Path>)
-    {
-        let test_data: Rc<RefCell<_>> = Rc::new(RefCell::new(TestData::default()));
-        set_return_data(&test_data, result);
-
-        let file = ClassicFile::parse_lines(file_data.split_terminator("\n")).unwrap();
-        let runner = Box::new(TestRunner::new(test_data.clone()));
-
-        let e = Exec::new(runner);
-        match expected_result {
-            Ok(_) => { e.run(&file).expect("Should pass"); },
-            Err(err) => {
-                let ret = e.run(&file).expect_err("Should fail");
-                if let Error::ExitWithExitCode(exp_c) = err {
-                    match ret {
-                        Error::ExitWithExitCode(c) => {
-                            assert_eq!(c, exp_c);
-                        },
-                        _ => panic!("unmatched exit code {:?}", err)
-                    }
-                } else if let Error::ExitWithSignal(exp_sig) = err {
-                    match ret {
-                        Error::ExitWithSignal(sig) => {
-                            assert_eq!(sig, exp_sig);
-                        },
-                        _ => panic!("unmatched exit signal {:?}", err)
-                    }
-                } else {
-                    panic!("handled unexpected error {:?}", err)
-                }
-            },
+        fn add_return_data(&self, result: Result<RetCode>) -> &Self {
+            let mut data: RefMut<'_, _> = self.test_data.borrow_mut();
+            data.result.push_back(result);
+            self
         }
 
-        let (cmd, cd) = get_run_data_1(&test_data);
-        println!("cmd={:#?} cd={:#?}", cmd, cd);
-        assert_eq!(cmd.unwrap(), expected_cmd);
-        assert_eq!(cd, expected_cd);
+        pub fn run_with_tags<const N: usize>(&self, file_data: &str, tags: [&str ;N], expected_result: Result<()>) -> &Self {
+            let tags = HashSet::from(tags.map(|x| x.to_string()));
+            self.run_(file_data, |e,f| e.run_with_tags(f, &tags), expected_result)
+        }
 
-        let outfile = get_outfile(&test_data);
-        match outfile {
-            Some(f) => {
-                println!("outfile=Some({:?})", f);
-                assert_eq!(expected_outfile.expect("expected None"), f)
-            },
-            None => assert_eq!(expected_outfile, None)
+        pub fn run(&self, file_data: &str, expected_result: Result<()>) -> &Self {
+            self.run_(file_data, |e,f| e.run(f), expected_result)
+        }
+
+        fn run_<F>(&self, file_data: &str, f: F, expected_result: Result<()>) -> &Self
+        where
+            F: FnOnce(Exec, &ClassicFile) -> Result<()>
+        {
+            let file = ClassicFile::parse_lines(file_data.split_terminator("\n")).unwrap();
+            let runner = Box::new(TestRunner::new(self.test_data.clone()));
+
+            let e = Exec::new(runner);
+
+            match expected_result {
+                Ok(_) => { f(e, &file).expect("Should pass"); },
+                Err(err) => {
+                    let ret = f(e, &file).expect_err("Should fail");
+                    if let Error::ExitWithExitCode(exp_c) = err {
+                        match ret {
+                            Error::ExitWithExitCode(c) => {
+                                assert_eq!(c, exp_c);
+                            },
+                            _ => panic!("unmatched exit code {:?}", err)
+                        }
+                    } else if let Error::ExitWithSignal(exp_sig) = err {
+                        match ret {
+                            Error::ExitWithSignal(sig) => {
+                                assert_eq!(sig, exp_sig);
+                            },
+                            _ => panic!("unmatched exit signal {:?}", err)
+                        }
+                    } else {
+                        panic!("handled unexpected error {:?}", err)
+                    }
+                },
+            }
+
+            {
+                let data: RefMut<'_, _> = self.test_data.borrow_mut();
+                assert!(data.result.is_empty(), "Didn't exhaust results {:#?}", data.result);
+            }
+            self
+        }
+
+        fn verify_return_data<const N: usize>(&self, cmd: [&str; N], cd: Option<PathBuf>) -> &Self {
+            let mut data: RefMut<'_, _> = self.test_data.borrow_mut();
+            let result = data.run_data.pop_front().expect("Expected results");
+            assert_eq!(result.cmd, cmd);
+            assert_eq!(result.cd, cd);
+            self
+        }
+
+        fn verify_outfile(&self, expected: &str) -> &Self {
+            let mut data: RefMut<'_, _> = self.test_data.borrow_mut();
+            let outfile = data.outfile.pop_front();
+            assert_eq!(PathBuf::from(expected), outfile.expect("expected outfile"));
+            self
+        }
+
+        fn verify_complete(&self) {
+            let data: RefMut<'_, _> = self.test_data.borrow_mut();
+            assert!(data.run_data.is_empty(), "Didn't exhaust run_data {:#?}", data.run_data);
+            assert!(data.outfile.is_empty(), "Didn't exhaust outfile {:#?}", data.outfile);
+            assert!(data.result.is_empty());
+        }
+
+        fn done(&self) {
+            self.verify_complete();
+            let mut data: RefMut<'_, _> = self.test_data.borrow_mut();
+            data.clear();
         }
     }
 
     #[test]
     fn test_exec_uv4() {
-        simple_test_outfile(include_str!("../tests/uv4.upbuild"), Ok(0), Ok(()),
-                            ["uv4", "-j0", "-b", "project.uvproj", "-o", "log.txt"],
-                            None, "log.txt");
+
+        let file_data = include_str!("../tests/uv4.upbuild");
+        let uv4_run = ["uv4", "-j0", "-b", "project.uvproj", "-o", "log.txt"];
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .run(file_data, Ok(()))
+            .verify_return_data(uv4_run.clone(), None)
+            .verify_outfile("log.txt")
+            .done();
 
         // 1 should map to 0
-        simple_test_outfile(include_str!("../tests/uv4.upbuild"), Ok(1), Ok(()),
-                            ["uv4", "-j0", "-b", "project.uvproj", "-o", "log.txt"],
-                            None, "log.txt");
+        TestRun::new()
+            .add_return_data(Ok(1))
+            .run(file_data, Ok(()))
+            .verify_return_data(uv4_run.clone(), None)
+            .verify_outfile("log.txt")
+            .done();
 
         // 2 should fail though
-        simple_test(include_str!("../tests/uv4.upbuild"), Ok(2), Err(Error::ExitWithExitCode(2)),
-                            ["uv4", "-j0", "-b", "project.uvproj", "-o", "log.txt"],
-                            None);
+        TestRun::new()
+            .add_return_data(Ok(2))
+            .run(file_data, Err(Error::ExitWithExitCode(2)))
+            .verify_return_data(uv4_run.clone(), None)
+            .done();
 
         // signals should be propagated
-        simple_test(include_str!("../tests/uv4.upbuild"), Err(Error::ExitWithSignal(6)), Err(Error::ExitWithSignal(6)),
-                            ["uv4", "-j0", "-b", "project.uvproj", "-o", "log.txt"],
-                            None);
+        TestRun::new()
+            .add_return_data(Err(Error::ExitWithSignal(6)))
+            .run(file_data, Err(Error::ExitWithSignal(6)))
+            .verify_return_data(uv4_run.clone(), None)
+            .done();
     }
+
+    #[test]
+    fn test_exec_tags() {
+        let file_data = include_str!("../tests/manual.upbuild");
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .run(file_data, Ok(()))
+            .verify_return_data(["make", "tests"], None)
+            .verify_return_data(["make", "cross"], None)
+            .done();
+
+        TestRun::new()
+            .add_return_data(Ok(1))
+            .run(file_data, Err(Error::ExitWithExitCode(1)))
+            .verify_return_data(["make", "tests"], None)
+            .done();
+
+        // select hosts tags
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .run_with_tags(file_data, ["host"], Ok(()))
+            .verify_return_data(["make", "tests"], None)
+            .verify_return_data(["make", "install"], None)
+            .done();
+
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .run_with_tags(file_data, ["release"], Ok(()))
+            .verify_return_data(["make", "install"], None)
+            .done();
+
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .run_with_tags(file_data, ["target"], Ok(()))
+            .verify_return_data(["make", "cross"], None)
+            .done();
+
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .run_with_tags(file_data, ["target", "host"], Ok(()))
+            .verify_return_data(["make", "tests"], None)
+            .verify_return_data(["make", "cross"], None)
+            .verify_return_data(["make", "install"], None)
+            .done();
+
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(1))
+            .run_with_tags(file_data, ["target", "host"], Err(Error::ExitWithExitCode(1)))
+            .verify_return_data(["make", "tests"], None)
+            .verify_return_data(["make", "cross"], None)
+            .done();
+    }
+
 }
