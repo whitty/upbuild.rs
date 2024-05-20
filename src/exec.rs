@@ -56,6 +56,10 @@ impl Exec {
     }
 }
 
+fn display_output(_file: &Path) -> Result<()> {
+    todo!("@outfile not yet implemented {}", _file.display());
+}
+
 pub struct ProcessRunner {
 }
 
@@ -83,9 +87,22 @@ impl Runner for ProcessRunner {
         }
     }
 
-    fn display_output(&self, _file: &Path) -> Result<()>
-    {
-        todo!("@outfile not yet implemented {}", _file.display());
+    fn display_output(&self, file: &Path) -> Result<()> {
+        display_output(file)
+    }
+}
+
+pub struct PrintRunner {
+}
+
+impl Runner for PrintRunner {
+    fn run(&self, cmd: Vec<String>, _cd: Option<PathBuf>) -> Result<RetCode> {
+        println!("{}", cmd.join(" "));
+        Ok(0)
+    }
+
+    fn display_output(&self, file: &Path) -> Result<()> {
+        display_output(file)
     }
 }
 
