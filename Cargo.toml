@@ -5,4 +5,9 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+#fix the name of the executable
+[[bin]]
+name = "upbuild"
+path = "src/main.rs"
+
 [dependencies]
