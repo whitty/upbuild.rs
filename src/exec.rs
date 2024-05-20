@@ -9,6 +9,14 @@ use std::process::Command;
 
 pub type RetCode = isize;
 
+pub fn process_runner() -> Box<dyn Runner> {
+   Box::new(ProcessRunner {})
+}
+
+pub fn print_runner() -> Box<dyn Runner> {
+   Box::new(PrintRunner {})
+}
+
 pub struct Exec {
     runner: Box<dyn Runner>,
 }
