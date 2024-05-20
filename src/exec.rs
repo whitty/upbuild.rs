@@ -36,7 +36,7 @@ impl Exec {
     /// Run the given classic file and selected tags
     pub fn run_with_tags(&self, file: &ClassicFile, tags: &HashSet<String>) -> Result<()> {
         for cmd in &file.commands {
-            if ! cmd.enabled(&tags) {
+            if ! cmd.enabled(tags) {
                 continue;
             }
             let args = cmd.clone_args();
@@ -69,17 +69,17 @@ impl Runner for ProcessRunner {
             cd.inspect(|ref d| { exec.current_dir(d); });
 
             let result = exec.status()
-                .map_err(|e| Error::FailedToExec(e))?;
+                .map_err(Error::FailedToExec)?;
 
             match result.code() {
                 Some(c) => {
                     Ok(RetCode::try_from(c).expect("isize couldn't contain i32"))
                 },
-                None => return Err(Error::ExitWithSignal((result.signal().unwrap() as i32).try_into().unwrap()))
+                None => Err(Error::ExitWithSignal(result.signal().unwrap().try_into().unwrap()))
             }
 
         } else {
-            return Err(Error::EmptyEntry);
+            Err(Error::EmptyEntry)
         }
     }
 
@@ -175,7 +175,7 @@ mod tests {
         where
             F: FnOnce(Exec, &ClassicFile) -> Result<()>
         {
-            let file = ClassicFile::parse_lines(file_data.split_terminator("\n")).unwrap();
+            let file = ClassicFile::parse_lines(file_data.split_terminator('\n')).unwrap();
             let runner = Box::new(TestRunner::new(self.test_data.clone()));
 
             let e = Exec::new(runner);
@@ -248,7 +248,7 @@ mod tests {
         TestRun::new()
             .add_return_data(Ok(0))
             .run(file_data, Ok(()))
-            .verify_return_data(uv4_run.clone(), None)
+            .verify_return_data(uv4_run, None)
             .verify_outfile("log.txt")
             .done();
 
@@ -256,7 +256,7 @@ mod tests {
         TestRun::new()
             .add_return_data(Ok(1))
             .run(file_data, Ok(()))
-            .verify_return_data(uv4_run.clone(), None)
+            .verify_return_data(uv4_run, None)
             .verify_outfile("log.txt")
             .done();
 
@@ -264,14 +264,14 @@ mod tests {
         TestRun::new()
             .add_return_data(Ok(2))
             .run(file_data, Err(Error::ExitWithExitCode(2)))
-            .verify_return_data(uv4_run.clone(), None)
+            .verify_return_data(uv4_run, None)
             .done();
 
         // signals should be propagated
         TestRun::new()
             .add_return_data(Err(Error::ExitWithSignal(6)))
             .run(file_data, Err(Error::ExitWithSignal(6)))
-            .verify_return_data(uv4_run.clone(), None)
+            .verify_return_data(uv4_run, None)
             .done();
     }
 
