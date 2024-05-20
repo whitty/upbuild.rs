@@ -67,19 +67,29 @@ impl Cmd {
         self.args.clone()
     }
 
-    pub fn enabled(&self, tags: &HashSet<String>) -> bool {
+    pub fn enabled(&self, select_tags: &HashSet<String>) -> bool {
+        self.enabled_with_reject(select_tags, &HashSet::new())
+    }
+
+    pub fn enabled_with_reject(&self, select_tags: &HashSet<String>, reject_tags: &HashSet<String>) -> bool {
         if self.disabled {
             return false;
         }
-        let no_tags = tags.is_empty();
+
+        // reject if matched
+        if !reject_tags.is_disjoint(&self.tags) {
+            return false;
+        }
+
+        let no_tags = select_tags.is_empty();
         if self.manual &&
-            (no_tags || tags.is_disjoint(&self.tags)) {
+            (no_tags || select_tags.is_disjoint(&self.tags)) {
             return false;
         }
 
         if ! no_tags {
             // There are some tags - must match
-            return !tags.is_disjoint(&self.tags);
+            return !select_tags.is_disjoint(&self.tags);
         }
         true
     }
@@ -468,10 +478,18 @@ upbuild
         assert_eq!(file.commands[1].directory().expect("should exist"), std::path::Path::new("/path/to/the/rest"));
     }
 
-    fn check_tags<const N: usize>(file: &ClassicFile, tags: HashSet<String>, expected: [bool; N]) {
-        println!("Expecting {:?} tags to result in {:?}", tags, expected);
+    fn check_select_tags<const N: usize>(file: &ClassicFile, select_tags: HashSet<String>, expected: [bool; N]) {
+        println!("Expecting {:?} tags to result in {:?}", select_tags, expected);
         assert!(file.commands.iter()
-                .map(|x| x.enabled(&tags))
+                .map(|x| x.enabled(&select_tags))
+                .eq(expected.into_iter()));
+    }
+
+    fn check_select_reject_tags<const N: usize>(file: &ClassicFile, select_tags: HashSet<String>,
+                                                reject_tags: HashSet<String>, expected: [bool; N]) {
+        println!("Expecting select={:?} reject={:?} tags to result in {:?}", select_tags, reject_tags, expected);
+        assert!(file.commands.iter()
+                .map(|x| x.enabled_with_reject(&select_tags, &reject_tags))
                 .eq(expected.into_iter()));
     }
 
@@ -507,13 +525,35 @@ install
         assert!(file.commands[2].manual);
         assert!(!file.commands[2].recurse);
 
-        check_tags(&file, string_set([]), [true, true, false]);
-        check_tags(&file, string_set(["host"]), [true, false, true]);
-        check_tags(&file, string_set(["release"]), [false, false, true]);
-        check_tags(&file, string_set(["target"]), [false, true, false]);
-        check_tags(&file, string_set(["release", "host"]), [true, false, true]);
-        check_tags(&file, string_set(["release", "target"]), [false, true, true]);
-        check_tags(&file, string_set(["release", "target", "host"]), [true, true, true]);
+        check_select_tags(&file, string_set([]), [true, true, false]);
+        check_select_tags(&file, string_set(["host"]), [true, false, true]);
+        check_select_tags(&file, string_set(["release"]), [false, false, true]);
+        check_select_tags(&file, string_set(["target"]), [false, true, false]);
+        check_select_tags(&file, string_set(["release", "host"]), [true, false, true]);
+        check_select_tags(&file, string_set(["release", "target"]), [false, true, true]);
+        check_select_tags(&file, string_set(["release", "target", "host"]), [true, true, true]);
+
+        check_select_reject_tags(&file,
+                                 string_set(["release", "target", "host"]),
+                                 string_set([]), [true, true, true]);
+        check_select_reject_tags(&file,
+                                 string_set([]),
+                                 string_set([]), [true, true, false]);
+        check_select_reject_tags(&file,
+                                 string_set([]),
+                                 string_set(["target"]), [true, false, false]);
+        check_select_reject_tags(&file,
+                                 string_set([]),
+                                 string_set(["host"]), [false, true, false]);
+        check_select_reject_tags(&file,
+                                 string_set(["release"]),
+                                 string_set(["host"]), [false, false, false]);
+        check_select_reject_tags(&file,
+                                 string_set(["release", "target"]),
+                                 string_set(["host"]), [false, true, false]);
+        check_select_reject_tags(&file,
+                                 string_set(["host"]),
+                                 string_set(["release"]), [true, false, false]);
     }
 
 }
