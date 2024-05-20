@@ -39,6 +39,16 @@ you instead run as `upbuild another_directory` it will run `ls -la
 another_directory`.  The part of the command after `--` will be
 replaced with the arguments to `upbuild`.
 
+If you need to pass -- you can do so after the -- interpreted by build.
+
+    ls
+    -la
+    --
+    --
+    --help
+
+to produce a `-l` listing of the file name `--help`
+
 ### Multiple commands
 
 Additionally multiple commands can be strung-together by separating
