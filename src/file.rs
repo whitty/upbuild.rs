@@ -48,14 +48,14 @@ impl Cmd {
 
     pub fn directory(&self) -> Option<PathBuf> {
         match self.cd {
-            Some(ref d) => return Some(PathBuf::from(d)),
+            Some(ref d) => Some(PathBuf::from(d)),
             None => {
                 if self.recurse {
                     return Some(PathBuf::from(".."));
                 }
-                return None;
+                None
             },
-        };
+        }
     }
 
     pub fn map_code(&self, c: RetCode) ->RetCode {
@@ -72,10 +72,9 @@ impl Cmd {
             return false;
         }
         let no_tags = tags.is_empty();
-        if self.manual {
-            if no_tags || tags.is_disjoint(&self.tags) {
-                return false;
-            }
+        if self.manual &&
+            (no_tags || tags.is_disjoint(&self.tags)) {
+            return false;
         }
 
         if ! no_tags {
@@ -278,7 +277,7 @@ mod tests {
     fn parse(s: &str) -> ClassicFile {
         // basic test structure - printing in case of failure
         println!("'{}'", s);
-        let file = ClassicFile::parse_lines(s.split_terminator("\n")).unwrap();
+        let file = ClassicFile::parse_lines(s.split_terminator('\n')).unwrap();
         println!("{:#?}", file);
         file
     }
