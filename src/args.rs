@@ -2,9 +2,9 @@ use std::collections::HashSet;
 
 #[derive(Debug, Default, PartialEq)]
 pub struct Config {
-    print: bool,
-    select: HashSet<String>,
-    reject: HashSet<String>,
+    pub print: bool,
+    pub select: HashSet<String>,
+    pub reject: HashSet<String>,
 }
 
 fn apply_tags(arg: &str, add: &mut HashSet<String> , drop: &mut HashSet<String>) -> bool {
@@ -29,33 +29,29 @@ impl Config {
         let mut args = args.peekable();
         let mut cfg = Config { ..Default::default() };
 
-        loop {
-            if let Some(arg) = args.peek() {
-                if arg.starts_with("--") {
-                    match &arg[2..] {
-                        "ub-print" => {
-                            cfg.print = true;
-                        },
-                        "-" => todo!("--- not handled yet"),
-                        "" => { args.next(); break; },
-                        _ => {
-                            if arg.starts_with("--ub-select=") {
-                                if ! apply_tags(arg, &mut cfg.select, &mut cfg.reject) {
-                                    break;
-                                }
-                            } else if arg.starts_with("--ub-reject=") {
-                                if ! apply_tags(arg, &mut cfg.reject, &mut cfg.select) {
-                                    break;
-                                }
-                            } else {
+        while let Some(arg) = args.peek() {
+            if arg.starts_with("--") {
+                match &arg[2..] {
+                    "ub-print" => {
+                        cfg.print = true;
+                    },
+                    "-" => todo!("--- not handled yet"),
+                    "" => { args.next(); break; },
+                    _ => {
+                        if arg.starts_with("--ub-select=") {
+                            if ! apply_tags(arg, &mut cfg.select, &mut cfg.reject) {
                                 break;
                             }
-                        },
-                    };
+                        } else if arg.starts_with("--ub-reject=") {
+                            if ! apply_tags(arg, &mut cfg.reject, &mut cfg.select) {
+                                break;
+                            }
+                        } else {
+                            break;
+                        }
+                    },
+                };
 
-                } else {
-                    break;
-                }
             } else {
                 break;
             }
