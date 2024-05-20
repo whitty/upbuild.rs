@@ -2,7 +2,7 @@ use std::{fs, os::linux::fs::MetadataExt, path::PathBuf};
 use super::{Error, Result};
 
 fn readable(p: &PathBuf) -> bool {
-    ! fs::File::open(p).is_err()
+    fs::File::open(p).is_ok()
 }
 
 fn inode(p: &PathBuf) -> u64 {
