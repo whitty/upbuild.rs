@@ -13,6 +13,7 @@ for (ver in build_os_vers) {
 
         stage("${version}-preparation") {
           src = checkout(scm)
+          sh "sudo apt install -y bats"
         }
 
         stage("${version}-build") {
@@ -40,6 +41,12 @@ for (ver in build_os_vers) {
                          tools: [cargo(id: "cargo-clippy-${version}",
                                        name: "Clippy ${version}",
                                        pattern: "**/target/report-${version}.log")])
+          }
+        }
+
+        stage("${version}-bats") {
+          warnError("run") {
+            sh "./tests/simple.bats"
           }
         }
 
