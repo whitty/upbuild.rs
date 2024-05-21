@@ -67,10 +67,6 @@ impl Cmd {
         self.args.clone()
     }
 
-    pub fn enabled(&self, select_tags: &HashSet<String>) -> bool {
-        self.enabled_with_reject(select_tags, &HashSet::new())
-    }
-
     pub fn enabled_with_reject(&self, select_tags: &HashSet<String>, reject_tags: &HashSet<String>) -> bool {
         if self.disabled {
             return false;
@@ -481,7 +477,7 @@ upbuild
     fn check_select_tags<const N: usize>(file: &ClassicFile, select_tags: HashSet<String>, expected: [bool; N]) {
         println!("Expecting {:?} tags to result in {:?}", select_tags, expected);
         assert!(file.commands.iter()
-                .map(|x| x.enabled(&select_tags))
+                .map(|x| x.enabled_with_reject(&select_tags, &HashSet::new()))
                 .eq(expected.into_iter()));
     }
 
