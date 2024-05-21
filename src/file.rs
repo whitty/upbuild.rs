@@ -63,10 +63,6 @@ impl Cmd {
             .unwrap_or(&c)
     }
 
-    pub fn clone_args(&self) -> Vec<String> {
-        self.args.clone()
-    }
-
     pub fn with_args(&self, provided_args: &[String]) -> Vec<String> {
         if provided_args.is_empty() {
 

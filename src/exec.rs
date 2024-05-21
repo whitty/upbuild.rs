@@ -42,12 +42,22 @@ impl Exec {
     }
 
     /// Run the given classic file and selected tags
-    pub fn run_with_tags(&self, file: &ClassicFile, select_tags: &HashSet<String>, reject_tags: &HashSet<String>) -> Result<()> {
+    pub fn run_with_tags(&self, file: &ClassicFile,
+                         select_tags: &HashSet<String>,
+                         reject_tags: &HashSet<String>) -> Result<()> {
+        self.run_with_tags_and_args(file, select_tags, reject_tags, &Vec::new())
+    }
+
+    /// Run the given classic file and selected tags
+    pub fn run_with_tags_and_args(&self, file: &ClassicFile,
+                         select_tags: &HashSet<String>,
+                         reject_tags: &HashSet<String>,
+                         args: &[String]) -> Result<()> {
         for cmd in &file.commands {
             if ! cmd.enabled_with_reject(select_tags, reject_tags) {
                 continue;
             }
-            let args = cmd.clone_args();
+            let args = cmd.with_args(args);
 
             let code = self.runner.run(args, cmd.directory())?;
             let c = cmd.map_code(code);
