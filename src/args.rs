@@ -30,8 +30,8 @@ impl Config {
         let mut cfg = Config { ..Default::default() };
 
         while let Some(arg) = args.peek() {
-            if arg.starts_with("--") {
-                match &arg[2..] {
+            if let Some(s) = arg.strip_prefix("--") {
+                match s {
                     "ub-print" => {
                         cfg.print = true;
                     },
