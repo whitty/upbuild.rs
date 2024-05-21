@@ -38,13 +38,13 @@ impl Exec {
     /// Run the given classic file - no tags
     pub fn run(&self, file: &ClassicFile) -> Result<()> {
         let tags = HashSet::<String>::new();
-        self.run_with_tags(file, &tags)
+        self.run_with_tags(file, &tags, &tags)
     }
 
     /// Run the given classic file and selected tags
-    pub fn run_with_tags(&self, file: &ClassicFile, tags: &HashSet<String>) -> Result<()> {
+    pub fn run_with_tags(&self, file: &ClassicFile, select_tags: &HashSet<String>, reject_tags: &HashSet<String>) -> Result<()> {
         for cmd in &file.commands {
-            if ! cmd.enabled(tags) {
+            if ! cmd.enabled_with_reject(select_tags, reject_tags) {
                 continue;
             }
             let args = cmd.clone_args();
@@ -187,9 +187,15 @@ mod tests {
             self
         }
 
-        pub fn run_with_tags<const N: usize>(&self, file_data: &str, tags: [&str ;N], expected_result: Result<()>) -> &Self {
-            let tags = HashSet::from(tags.map(|x| x.to_string()));
-            self.run_(file_data, |e,f| e.run_with_tags(f, &tags), expected_result)
+        pub fn run_with_tags<const N: usize, const O: usize>(&self, file_data: &str, select_tags: [&str ;N], reject_tags: [&str ;O], expected_result: Result<()>) -> &Self {
+            let select_tags = HashSet::from(select_tags.map(|x| x.to_string()));
+            let reject_tags = HashSet::from(reject_tags.map(|x| x.to_string()));
+            self.run_(file_data, |e,f| e.run_with_tags(f, &select_tags, &reject_tags), expected_result)
+        }
+
+        pub fn run_with_select_tags<const N: usize>(&self, file_data: &str, select_tags: [&str ;N], expected_result: Result<()>) -> &Self {
+            let tags = HashSet::from(select_tags.map(|x| x.to_string()));
+            self.run_(file_data, |e,f| e.run_with_tags(f, &tags, &HashSet::new()), expected_result)
         }
 
         pub fn run(&self, file_data: &str, expected_result: Result<()>) -> &Self {
@@ -321,20 +327,20 @@ mod tests {
         TestRun::new()
             .add_return_data(Ok(0))
             .add_return_data(Ok(0))
-            .run_with_tags(file_data, ["host"], Ok(()))
+            .run_with_select_tags(file_data, ["host"], Ok(()))
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["make", "install"], None)
             .done();
 
         TestRun::new()
             .add_return_data(Ok(0))
-            .run_with_tags(file_data, ["release"], Ok(()))
+            .run_with_select_tags(file_data, ["release"], Ok(()))
             .verify_return_data(["make", "install"], None)
             .done();
 
         TestRun::new()
             .add_return_data(Ok(0))
-            .run_with_tags(file_data, ["target"], Ok(()))
+            .run_with_select_tags(file_data, ["target"], Ok(()))
             .verify_return_data(["make", "cross"], None)
             .done();
 
@@ -342,7 +348,7 @@ mod tests {
             .add_return_data(Ok(0))
             .add_return_data(Ok(0))
             .add_return_data(Ok(0))
-            .run_with_tags(file_data, ["target", "host"], Ok(()))
+            .run_with_select_tags(file_data, ["target", "host"], Ok(()))
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["make", "cross"], None)
             .verify_return_data(["make", "install"], None)
@@ -351,8 +357,26 @@ mod tests {
         TestRun::new()
             .add_return_data(Ok(0))
             .add_return_data(Ok(1))
-            .run_with_tags(file_data, ["target", "host"], Err(Error::ExitWithExitCode(1)))
+            .run_with_select_tags(file_data, ["target", "host"], Err(Error::ExitWithExitCode(1)))
             .verify_return_data(["make", "tests"], None)
+            .verify_return_data(["make", "cross"], None)
+            .done();
+
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .run_with_tags(file_data, ["host"], ["release"], Ok(()))
+            .verify_return_data(["make", "tests"], None)
+            .done();
+
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .run_with_tags(file_data, [], ["host"], Ok(()))
+            .verify_return_data(["make", "cross"], None)
+            .done();
+
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .run_with_tags(file_data, ["target"], [], Ok(()))
             .verify_return_data(["make", "cross"], None)
             .done();
     }

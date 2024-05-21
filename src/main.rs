@@ -32,7 +32,7 @@ fn run() -> Result<()> {
         }
     );
 
-    exec.run_with_tags(&parsed_file, &cfg.select)
+    exec.run_with_tags(&parsed_file, &cfg.select, &cfg.reject)
 }
 
 fn main() -> ExitCode {
