@@ -8,7 +8,7 @@ pub enum Error {
     FlagBeforeCommand(String),
     NoCommands,
     FailedToExec(std::io::Error),
-    IoError(std::io::Error),
+    IoFailed(std::io::Error),
     InvalidDir(String),
     NotFound(String),
     ExitWithExitCode(RetCode),
@@ -30,7 +30,7 @@ impl std::fmt::Display for Error {
                 write!(f, "No commands in file"),
             Error::FailedToExec(e) =>
                  write!(f, "Failed to exec: {}", e),
-            Error::IoError(e) =>
+            Error::IoFailed(e) =>
                 write!(f, "{}", e),
             Error::InvalidDir(p) =>
                 write!(f, "Invalid directory '{}'", p),
@@ -54,13 +54,13 @@ impl std::error::Error for Error {
                 => None,
 
             Error::FailedToExec(ref e) => Some(e),
-            Error::IoError(ref e) => Some(e),
+            Error::IoFailed(ref e) => Some(e),
         }
     }
 }
 
 impl From<std::io::Error> for Error {
     fn from(err: std::io::Error) -> Error {
-        Error::IoError(err)
+        Error::IoFailed(err)
     }
 }
