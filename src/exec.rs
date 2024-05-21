@@ -198,9 +198,18 @@ mod tests {
         }
 
         pub fn run_with_tags<const N: usize, const O: usize>(&self, file_data: &str, select_tags: [&str ;N], reject_tags: [&str ;O], expected_result: Result<()>) -> &Self {
+            self.run_with_tags_and_args(file_data, select_tags, reject_tags, [], expected_result)
+        }
+
+        pub fn run_with_args<const N: usize>(&self, file_data: &str, provided_args: [&str; N], expected_result: Result<()>) -> &Self {
+            self.run_with_tags_and_args(file_data, [], [], provided_args, expected_result)
+        }
+
+        pub fn run_with_tags_and_args<const N: usize, const O: usize, const Q: usize>(&self, file_data: &str, select_tags: [&str ;N], reject_tags: [&str ;O], provided_args: [&str; Q], expected_result: Result<()>) -> &Self {
             let select_tags = HashSet::from(select_tags.map(|x| x.to_string()));
             let reject_tags = HashSet::from(reject_tags.map(|x| x.to_string()));
-            self.run_(file_data, |e,f| e.run_with_tags(f, &select_tags, &reject_tags), expected_result)
+            let provided_args: Vec<String> = provided_args.into_iter().map(String::from).collect();
+            self.run_(file_data, |e,f| e.run_with_tags_and_args(f, &select_tags, &reject_tags, &provided_args), expected_result)
         }
 
         pub fn run_with_select_tags<const N: usize>(&self, file_data: &str, select_tags: [&str ;N], expected_result: Result<()>) -> &Self {
@@ -391,4 +400,31 @@ mod tests {
             .done();
     }
 
+    #[test]
+    fn args() {
+        let file_data = include_str!("../tests/args.upbuild");
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .run_with_args(file_data, [], Ok(()))
+            .verify_return_data(["make", "-j8", "BUILD_MODE=host_debug", "test"], None)
+            .verify_return_data(["echo"], None)
+            .done();
+
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .run_with_args(file_data, ["all"], Ok(()))
+            .verify_return_data(["make", "-j8", "BUILD_MODE=host_debug", "all"], None)
+            .verify_return_data(["echo", "all"], None)
+            .done();
+
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .run_with_args(file_data, ["all", "tests"], Ok(()))
+            .verify_return_data(["make", "-j8", "BUILD_MODE=host_debug", "all", "tests"], None)
+            .verify_return_data(["echo", "all", "tests"], None)
+            .done();
+    }
 }
