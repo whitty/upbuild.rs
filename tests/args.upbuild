@@ -1,0 +1,7 @@
+make
+-j8
+BUILD_MODE=host_debug
+--
+test
+&&
+echo
