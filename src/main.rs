@@ -7,12 +7,6 @@ fn run() -> Result<()> {
 
     let (args, cfg) = Config::parse(std::env::args().skip(1)); // skip argv[0]
 
-    // TODO handle args
-    let args: Vec<String> = args.collect();
-    if !args.is_empty() {
-        todo!("args not yet implemented {:?}", args)
-    }
-
     let upbuild_file = upbuild_rs::find(".")?;
 
     let parsed_file = ClassicFile::parse_lines(
@@ -32,7 +26,8 @@ fn run() -> Result<()> {
         }
     );
 
-    exec.run_with_tags(&parsed_file, &cfg.select, &cfg.reject)
+    let args: Vec<String> = args.collect();
+    exec.run_with_tags_and_args(&parsed_file, &cfg.select, &cfg.reject, &args)
 }
 
 fn main() -> ExitCode {
