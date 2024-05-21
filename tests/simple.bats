@@ -105,3 +105,24 @@ echo 2 3" ]
 1
 2" ]
 }
+
+@test "outfile" {
+  mkdir 2
+  cd 2
+  cat > .upbuild <<EOF
+echo
+foo
+@outfile=log.txt
+EOF
+
+  run "$upbuild"
+  [ "${lines[0]}" = "foo" ]
+  echo "${lines[1]}" | grep -q "Unable to read @outfile=log.txt"
+  [ "$status" -ne 0 ]
+
+  echo bar > log.txt
+  run "$upbuild"
+  [ "$output" = "foo
+bar" ]
+  [ "$status" -eq 0 ]
+}

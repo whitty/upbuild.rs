@@ -46,7 +46,7 @@ for (ver in build_os_vers) {
 
         stage("${version}-bats") {
           warnError("run") {
-            sh "./tests/simple.bats"
+            sh "bats ./tests"
           }
         }
 
