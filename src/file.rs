@@ -110,6 +110,7 @@ impl Cmd {
     }
 }
 
+/// Read an `.upbuild` file in the "classic" "simple" format
 #[derive(Debug)]
 pub struct ClassicFile {
     pub(crate) commands: Vec<Cmd>, // TODO - pub(crate) is lazy)

@@ -21,6 +21,8 @@ fn apply_tags(arg: &str, add: &mut HashSet<String> , drop: &mut HashSet<String>)
     false
 }
 
+/// Handles the `--ub-*` prefix command-line arguments and returns the
+/// remaining command-line arguments to the caller.
 impl Config {
     pub fn parse<T>(args: T) -> (std::iter::Peekable<T>, Config)
     where

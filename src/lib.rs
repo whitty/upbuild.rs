@@ -1,3 +1,6 @@
+//! `upbuild_rs` is a rust reimplementation of my hacky integration
+//! helper `upbuild` as seen [here](https://github.com/whitty/upbuild).
+
 mod error;
 mod file;
 mod exec;

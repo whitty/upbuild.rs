@@ -9,14 +9,19 @@ use std::process::Command;
 
 pub type RetCode = isize;
 
+/// Create a normal runner for [`Exec`] that actually runs the commands
 pub fn process_runner() -> Box<dyn Runner> {
    Box::new(ProcessRunner {})
 }
 
+/// Create a runner for [`Exec`] that just prints the commands
 pub fn print_runner() -> Box<dyn Runner> {
    Box::new(PrintRunner {})
 }
 
+/// The Exec struct implements the actual iteration through the
+/// `.upbuild` file and dispatch of the derived commands after
+/// applying arguments and tags.
 pub struct Exec {
     runner: Box<dyn Runner>,
 }

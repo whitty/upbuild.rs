@@ -12,6 +12,7 @@ fn inode(p: &PathBuf) -> u64 {
 // Ensure we don't recurse forever
 const MAX_DEPTH: usize = 128;
 
+/// Locate the `.upbuild` file relative to  the given path (as string)
 pub fn find(start: &str) -> Result<PathBuf> {
     let mut curr = PathBuf::from(start);
     if ! curr.is_dir() {
