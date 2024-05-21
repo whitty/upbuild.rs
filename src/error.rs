@@ -13,6 +13,7 @@ pub enum Error {
     NotFound(String),
     ExitWithExitCode(RetCode),
     ExitWithSignal(RetCode),
+    UnableToReadOutfile(String, std::io::Error),
 }
 
 impl std::fmt::Display for Error {
@@ -40,6 +41,8 @@ impl std::fmt::Display for Error {
                  write!(f, "Process exitted with code: {}", c),
             Error::ExitWithSignal(c) =>
                  write!(f, "Process exitted with signal: {}", c),
+            Error::UnableToReadOutfile(file, e) =>
+                write!(f, "Unable to read @outfile={}: {}", file, e),
         }
     }
 }
@@ -50,7 +53,9 @@ impl std::error::Error for Error {
             Error::InvalidTag(_) | Error::InvalidRetMapDefinition(_) |
             Error::EmptyEntry | Error::FlagBeforeCommand(_) |
             Error::NoCommands | Error::ExitWithExitCode(_) |
-            Error::ExitWithSignal(_) | Error::InvalidDir(_) | Error::NotFound(_)
+            Error::ExitWithSignal(_) | Error::InvalidDir(_) | Error::NotFound(_) |
+            Error::UnableToReadOutfile(_, _)
+
                 => None,
 
             Error::FailedToExec(ref e) => Some(e),

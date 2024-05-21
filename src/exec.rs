@@ -74,8 +74,11 @@ impl Exec {
     }
 }
 
-fn display_output(_file: &Path) -> Result<()> {
-    todo!("@outfile not yet implemented {}", _file.display());
+fn display_output(file: &Path) -> Result<()> {
+    std::fs::File::open(file)
+        .and_then(|mut f| std::io::copy(&mut f, &mut std::io::stdout().lock()))
+        .map_err(|e| Error::UnableToReadOutfile(file.display().to_string(), e))?;
+    Ok(())
 }
 
 pub struct ProcessRunner {
