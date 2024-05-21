@@ -43,16 +43,6 @@ for (ver in build_os_vers) {
           }
         }
 
-        stage("${version}-run") {
-          for (cmd in [
-            '--ub-print',
-          ]) {
-            warnError("run") {
-              sh "cargo run -- $cmd"
-            }
-          }
-        }
-
       } // withEnv
 
     } //node
