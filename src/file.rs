@@ -46,6 +46,10 @@ impl Cmd {
         self.outfile.as_ref().map(|ref f| PathBuf::from(f))
     }
 
+    pub fn recurse(&self) -> bool {
+        self.recurse
+    }
+
     pub fn directory(&self) -> Option<PathBuf> {
         match self.cd {
             Some(ref d) => Some(PathBuf::from(d)),
@@ -84,6 +88,10 @@ impl Cmd {
             .map(String::from)
             .chain(provided_args.iter().cloned())
             .collect()
+    }
+
+    pub fn args(&self) -> std::slice::Iter<'_, String> {
+        self.args.iter()
     }
 
     pub fn enabled_with_reject(&self, select_tags: &HashSet<String>, reject_tags: &HashSet<String>) -> bool {
