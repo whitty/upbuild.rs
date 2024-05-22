@@ -50,19 +50,29 @@ impl Exec {
     pub fn run_with_tags(&self, file: &ClassicFile,
                          select_tags: &HashSet<String>,
                          reject_tags: &HashSet<String>) -> Result<()> {
-        self.run_with_tags_and_args(file, select_tags, reject_tags, &Vec::new())
+        self.run_with_tags_and_args(file, select_tags, reject_tags, &Vec::new(), None)
     }
 
     /// Run the given classic file and selected tags
     pub fn run_with_tags_and_args(&self, file: &ClassicFile,
-                         select_tags: &HashSet<String>,
-                         reject_tags: &HashSet<String>,
-                         args: &[String]) -> Result<()> {
+                                  // TODO - take config instead of all the args
+                                  select_tags: &HashSet<String>,
+                                  reject_tags: &HashSet<String>,
+                                  provided_args: &[String],
+                                  argv0: Option<String>) -> Result<()> {
+
+        let argv0 = argv0.or_else(|| Some(String::from("upbuild")));
         for cmd in &file.commands {
             if ! cmd.enabled_with_reject(select_tags, reject_tags) {
                 continue;
             }
-            let args = cmd.with_args(args);
+            let args = Self::with_args(cmd.args(), provided_args,
+                                       if cmd.recurse() {
+                                           argv0.as_ref()
+                                       } else {
+                                           None
+                                       }
+            );
 
             let code = self.runner.run(args, cmd.directory())?;
             let c = cmd.map_code(code);
@@ -77,6 +87,42 @@ impl Exec {
 
         Ok(())
     }
+
+    fn with_args(args: std::slice::Iter<'_, String>, provided_args: &[String], argv0: Option<&String>) -> Vec<String> {
+        // map helper for selecting argv[0] from args or argv0
+        let mut replace_first = argv0.is_some();
+        let replace_argv0 = |x| {
+            if replace_first {
+                replace_first = false;
+                argv0.unwrap()
+            } else {
+                x
+            }
+        };
+
+        if provided_args.is_empty() {
+
+            let mut first_separator = true;
+            return args
+                .map(replace_argv0)
+                .filter(|x| {
+                    if first_separator && x == &"--" {
+                        first_separator = false;
+                        return false;
+                    }
+                    true
+                })
+                .map(String::from)
+                .collect();
+        }
+
+        args.take_while(|x| x != &"--")
+            .map(replace_argv0)
+            .map(String::from)
+            .chain(provided_args.iter().cloned())
+            .collect()
+    }
+
 }
 
 fn display_output(file: &Path) -> Result<()> {
@@ -190,13 +236,20 @@ mod tests {
 
     struct TestRun {
         test_data: Rc<RefCell<TestData>>,
+        argv0: Option<String>,
     }
 
     impl TestRun {
         fn new() -> TestRun {
             TestRun {
                 test_data: Rc::new(RefCell::new(TestData::default())),
+                argv0: None
             }
+        }
+
+        fn override_argv0<T: Into<String>>(&mut self, a: T) -> &Self {
+            self.argv0.replace(a.into());
+            self
         }
 
         fn add_return_data(&self, result: Result<RetCode>) -> &Self {
@@ -217,7 +270,7 @@ mod tests {
             let select_tags = HashSet::from(select_tags.map(|x| x.to_string()));
             let reject_tags = HashSet::from(reject_tags.map(|x| x.to_string()));
             let provided_args: Vec<String> = provided_args.into_iter().map(String::from).collect();
-            self.run_(file_data, |e,f| e.run_with_tags_and_args(f, &select_tags, &reject_tags, &provided_args), expected_result)
+            self.run_(file_data, |e,f| e.run_with_tags_and_args(f, &select_tags, &reject_tags, &provided_args, self.argv0.clone()), expected_result)
         }
 
         pub fn run_with_select_tags<const N: usize>(&self, file_data: &str, select_tags: [&str ;N], expected_result: Result<()>) -> &Self {
@@ -433,6 +486,37 @@ mod tests {
             .run_with_args(file_data, ["all", "tests"], Ok(()))
             .verify_return_data(["make", "-j8", "BUILD_MODE=host_debug", "all", "tests"], None)
             .verify_return_data(["echo", "all", "tests"], None)
+            .done();
+    }
+
+    #[test]
+    fn recurse() {
+        let file_data = include_str!("../tests/recurse.upbuild");
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .run_with_args(file_data, [], Ok(()))
+            .verify_return_data(["make", "tests"], None)
+            .verify_return_data(["upbuild"], Some(PathBuf::from("..")))
+            .done();
+
+        TestRun::new()
+            .override_argv0("/path/to/upbuild")
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .run_with_args(file_data, [], Ok(()))
+            .verify_return_data(["make", "tests"], None)
+            .verify_return_data(["/path/to/upbuild"], Some(PathBuf::from("..")))
+            .done();
+
+        let file_data = include_str!("../tests/norecurse.upbuild");
+        TestRun::new()
+            .override_argv0("/path/to/upbuild")
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .run_with_args(file_data, [], Ok(()))
+            .verify_return_data(["make", "tests"], None)
+            .verify_return_data(["/path/to/upbuild"], Some(PathBuf::from("/path/to/build")))
             .done();
     }
 }

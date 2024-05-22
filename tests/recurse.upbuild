@@ -1,0 +1,4 @@
+make
+tests
+&&
+upbuild

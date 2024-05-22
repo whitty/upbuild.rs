@@ -5,7 +5,7 @@ use upbuild_rs::{ClassicFile, Config, Exec, Result};
 
 fn run() -> Result<()> {
 
-    let (args, cfg) = Config::parse(std::env::args().skip(1)); // skip argv[0]
+    let (args, cfg) = Config::parse(std::env::args());
 
     let upbuild_file = upbuild_rs::find(".")?;
 
@@ -27,7 +27,7 @@ fn run() -> Result<()> {
     );
 
     let args: Vec<String> = args.collect();
-    exec.run_with_tags_and_args(&parsed_file, &cfg.select, &cfg.reject, &args)
+    exec.run_with_tags_and_args(&parsed_file, &cfg.select, &cfg.reject, &args, Some(cfg.argv0))
 }
 
 fn main() -> ExitCode {

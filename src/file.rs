@@ -67,29 +67,6 @@ impl Cmd {
             .unwrap_or(&c)
     }
 
-    pub fn with_args(&self, provided_args: &[String]) -> Vec<String> {
-        if provided_args.is_empty() {
-
-            let mut first_separator = true;
-            return self.args.iter()
-                .filter(|x| {
-                    if first_separator && x == &"--" {
-                        first_separator = false;
-                        return false;
-                    }
-                    true
-                })
-                .map(String::from)
-                .collect();
-        }
-
-        self.args.iter()
-            .take_while(|x| x != &"--")
-            .map(String::from)
-            .chain(provided_args.iter().cloned())
-            .collect()
-    }
-
     pub fn args(&self) -> std::slice::Iter<'_, String> {
         self.args.iter()
     }
@@ -579,35 +556,4 @@ install
                                  string_set(["host"]),
                                  string_set(["release"]), [true, false, false]);
     }
-
-    fn as_vec<const N: usize>(v: [&str; N]) -> Vec<String> {
-        v.into_iter().map(String::from).collect()
-    }
-
-    #[test]
-    fn arguments() {
-
-        let s = include_str!("../tests/args.upbuild");
-        let file = parse(s);
-
-        assert_eq!(2, file.commands.len());
-        let args = vec![];
-        assert_eq!(file.commands[0].with_args(&args),
-                   vec!["make", "-j8", "BUILD_MODE=host_debug", "test"]);
-        assert_eq!(file.commands[1].with_args(&args),
-                   vec!["echo"]);
-
-        let args = as_vec(["all"]);
-        assert_eq!(file.commands[0].with_args(&args),
-                    vec!["make", "-j8", "BUILD_MODE=host_debug", "all"]);
-        assert_eq!(file.commands[1].with_args(&args),
-                   vec!["echo", "all"]);
-
-        let args = as_vec(["all", "test"]);
-        assert_eq!(file.commands[0].with_args(&args),
-                    ["make", "-j8", "BUILD_MODE=host_debug", "all", "test"]);
-        assert_eq!(file.commands[1].with_args(&args),
-                   ["echo", "all", "test"]);
-    }
-
 }
