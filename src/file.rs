@@ -163,6 +163,7 @@ fn split_flag(l: &str) -> Result<(&str, &str)> {
 
 impl ClassicFile {
 
+    /// Create a [ClassicFile] from the given iterator providing linesa
     pub fn parse_lines<I>(lines: I) -> Result<ClassicFile>
     where I: Iterator<Item=String>
     {
@@ -219,10 +220,6 @@ impl ClassicFile {
         Ok(ClassicFile{
             commands: entries,
         })
-    }
-
-    pub fn len(&self) {
-        self.commands.len();
     }
 }
 

@@ -1,7 +1,5 @@
 # Upbuild
 
-[![Build Status](https://travis-ci.org/whitty/upbuild.svg?branch=master)](https://travis-ci.org/whitty/upbuild)
-
 Simple directory tree build helper
 
 ## Installation
@@ -115,7 +113,7 @@ irrespective of success or failure.
 ### Fixing odd error codes
 
 Some build tools return error codes that may not represent an error.
-Use the option @retmap to provide a comma separated list of
+Use the option `@retmap` to provide a comma separated list of
 return-code mappings - integer=>integer.
 
     uv4
@@ -140,7 +138,7 @@ using --ub-print.
 ### Controlling execution
 
 Sometimes you need to exclude a command from a list - mark it as
-@disable.
+`@disable`.
 
     make
     tests
@@ -195,7 +193,7 @@ install
 
 ### Recursive calls
 
-If the command being invoked is upbuild itself it will be invoked from
+If the command being invoked is `upbuild` itself it will be invoked from
 the next level down.  You can use this to layer your calls, or provide
 scoping.
 
@@ -209,11 +207,11 @@ scoping.
     &&
     upbuild
 
-Invoking upbuild in the component1 directory will build the local
+Invoking `upbuild` in the component1 directory will build the local
 component, then pass up the chain for the next action - relinking.
 
-Combine this with --ub-select to rebuild a single tag based on your
-location.  For example assuming the .upbuild file from the @tags
+Combine this with `--ub-select` to rebuild a single tag based on your
+location.  For example assuming the `.upbuild` file from the @tags
 example, you may have the following in a target sub-directory:
 
     $ cat src/target/.upbuild
