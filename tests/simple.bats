@@ -106,6 +106,17 @@ echo 2 3" ]
 2" ]
 }
 
+# recurse calls to shell, not actually recursing
+@test "recurse run args" {
+  cd 1/1.1
+
+  run "$upbuild" 3
+  [ "$status" -eq 0 ]
+  [ "$output" = "3
+3
+2 3" ]
+}
+
 @test "outfile" {
   mkdir 2
   cd 2
