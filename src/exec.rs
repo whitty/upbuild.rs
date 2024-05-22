@@ -132,7 +132,7 @@ fn display_output(file: &Path) -> Result<()> {
     Ok(())
 }
 
-pub struct ProcessRunner {
+struct ProcessRunner {
 }
 
 impl Runner for ProcessRunner {
@@ -164,7 +164,7 @@ impl Runner for ProcessRunner {
     }
 }
 
-pub struct PrintRunner {
+struct PrintRunner {
 }
 
 impl Runner for PrintRunner {
@@ -226,8 +226,7 @@ mod tests {
             data.result.pop_front().expect("Result wasn't set")
         }
 
-        fn display_output(&self, file: &Path) -> Result<()>
-        {
+        fn display_output(&self, file: &Path) -> Result<()> {
             let mut data = self.data.borrow_mut();
             data.outfile.push_back(PathBuf::from(file));
             Ok(())
