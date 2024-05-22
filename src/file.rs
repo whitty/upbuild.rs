@@ -163,14 +163,14 @@ fn split_flag(l: &str) -> Result<(&str, &str)> {
 
 impl ClassicFile {
 
-    pub fn parse_lines<'a, I>(lines: I) -> Result<ClassicFile>
-    where I: Iterator<Item=&'a str>
+    pub fn parse_lines<I>(lines: I) -> Result<ClassicFile>
+    where I: Iterator<Item=String>
     {
         let mut e: Option<Cmd> = None;
         let mut entries: Vec<Cmd> = Vec::new();
 
         for line in lines {
-            let line = parse_line(line)?;
+            let line = parse_line(&line[..])?;
 
             match line {
 
@@ -288,7 +288,7 @@ mod tests {
     fn parse(s: &str) -> ClassicFile {
         // basic test structure - printing in case of failure
         println!("'{}'", s);
-        let file = ClassicFile::parse_lines(s.split_terminator('\n')).unwrap();
+        let file = ClassicFile::parse_lines(s.lines().map(String::from)).unwrap();
         println!("{:#?}", file);
         file
     }

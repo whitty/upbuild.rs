@@ -13,10 +13,7 @@ fn run() -> Result<()> {
         std::fs::File::open(upbuild_file)
             .map(std::io::BufReader::new)?
             .lines()
-            .map_while(std::result::Result::ok)
-            .collect::<Vec<String>>() // TODO - had to collect into a vec to deal with map to &str
-            .iter()
-            .map(|x| x.as_str()))?;
+            .map_while(std::result::Result::ok))?;
 
     let exec = Exec::new(
         if cfg.print {
