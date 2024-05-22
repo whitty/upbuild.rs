@@ -1,10 +1,22 @@
 use std::collections::HashSet;
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Config {
     pub print: bool,
     pub select: HashSet<String>,
     pub reject: HashSet<String>,
+    pub argv0: String,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            print: Default::default(),
+            select: Default::default(),
+            reject: Default::default(),
+            argv0: String::from("upbuild"),
+        }
+    }
 }
 
 fn apply_tags(arg: &str, add: &mut HashSet<String> , drop: &mut HashSet<String>) -> bool {
@@ -24,12 +36,24 @@ fn apply_tags(arg: &str, add: &mut HashSet<String> , drop: &mut HashSet<String>)
 /// Handles the `--ub-*` prefix command-line arguments and returns the
 /// remaining command-line arguments to the caller.
 impl Config {
+
+    /// Parse the given parameters
+    ///
+    /// ```
+    /// # use upbuild_rs::Config;
+    /// let (args, cfg) = Config::parse(std::env::args());
+    /// ```
+
     pub fn parse<T>(args: T) -> (std::iter::Peekable<T>, Config)
     where
         T: Iterator<Item=String>
     {
         let mut args = args.peekable();
         let mut cfg = Config { ..Default::default() };
+
+        if let Some(arg) = args.next() {
+            cfg.argv0 = arg;
+        }
 
         while let Some(arg) = args.peek() {
             if let Some(s) = arg.strip_prefix("--") {
@@ -69,7 +93,10 @@ mod tests {
     use super::*;
 
     fn args<const N: usize>(args: [&str; N]) -> std::vec::IntoIter<String> {
-        let v: Vec<String> = args.into_iter().map(|x| x.to_string()).collect();
+        let v: Vec<String> =
+            ["upbuild"].into_iter()
+            .chain(args)
+            .map(|x| x.to_string()).collect();
         v.into_iter()
     }
 
