@@ -28,7 +28,11 @@ pub trait Runner {
     /// Run a given command in the provided directory
     fn run(&self, cmd: Vec<String>, cd: Option<PathBuf>) -> Result<RetCode>;
 
+    /// Display output from a file defined by @outfile
     fn display_output(&self, file: &Path) -> Result<()>;
+
+    /// Output additional data
+    fn display(&self, s: &str);
 }
 
 impl Exec {
@@ -53,7 +57,15 @@ impl Exec {
                                        }
             );
 
-            let code = self.runner.run(args, cmd.directory())?;
+            let working_dir = cmd.directory();
+
+            if let Some(ref d) = working_dir {
+                let dd = d.canonicalize();
+                let dir = dd.as_ref().unwrap_or(d);
+                self.runner.display(format!("upbuild: Entering directory `{}'", dir.display()).as_str());
+            }
+
+            let code = self.runner.run(args, working_dir)?;
             let c = cmd.map_code(code);
             if c != 0 {
                 return Err(Error::ExitWithExitCode(c));
@@ -141,6 +153,11 @@ impl Runner for ProcessRunner {
     fn display_output(&self, file: &Path) -> Result<()> {
         display_output(file)
     }
+
+    fn display(&self, s: &str) {
+        println!("{}", s)
+    }
+
 }
 
 struct PrintRunner {
@@ -154,6 +171,10 @@ impl Runner for PrintRunner {
 
     fn display_output(&self, file: &Path) -> Result<()> {
         display_output(file)
+    }
+
+    fn display(&self, _s: &str) {
+        // PrintRunner doesn't show the commentary
     }
 }
 
@@ -173,6 +194,7 @@ mod tests {
     struct TestData {
         run_data: VecDeque<RunData>,
         outfile: VecDeque<PathBuf>,
+        display: VecDeque<String>,
         result: VecDeque<Result<RetCode>>,
     }
 
@@ -180,6 +202,7 @@ mod tests {
         fn clear(&mut self) {
             self.run_data.clear();
             self.outfile.clear();
+            self.display.clear();
             self.result.clear();
         }
     }
@@ -209,6 +232,11 @@ mod tests {
             let mut data = self.data.borrow_mut();
             data.outfile.push_back(PathBuf::from(file));
             Ok(())
+        }
+
+        fn display(&self, s: &str) {
+            let mut data = self.data.borrow_mut();
+            data.display.push_back(String::from(s));
         }
     }
 
@@ -298,6 +326,18 @@ mod tests {
             self
         }
 
+        fn verify_cd_comment(&self, expected: &str) -> &Self {
+            let mut data: RefMut<'_, _> = self.test_data.borrow_mut();
+            let s = data.display.pop_front().expect("Expected results");
+            assert_eq!(s, expected);
+            self
+        }
+
+        fn verify_cd_dir(&self, dir: &str) -> &Self {
+            let expected = format!("upbuild: Entering directory `{}'", dir);
+            self.verify_cd_comment(expected.as_str())
+        }
+
         fn verify_return_data<const N: usize>(&self, cmd: [&str; N], cd: Option<PathBuf>) -> &Self {
             let mut data: RefMut<'_, _> = self.test_data.borrow_mut();
             let result = data.run_data.pop_front().expect("Expected results");
@@ -317,6 +357,7 @@ mod tests {
             let data: RefMut<'_, _> = self.test_data.borrow_mut();
             assert!(data.run_data.is_empty(), "Didn't exhaust run_data {:#?}", data.run_data);
             assert!(data.outfile.is_empty(), "Didn't exhaust outfile {:#?}", data.outfile);
+            assert!(data.display.is_empty(), "Didn't exhaust display {:#?}", data.display);
             assert!(data.result.is_empty());
         }
 
@@ -477,12 +518,14 @@ mod tests {
     #[test]
     fn recurse() {
         let file_data = include_str!("../tests/recurse.upbuild");
+        let dot_dot_path = PathBuf::from("..").canonicalize().unwrap();
         TestRun::new()
             .add_return_data(Ok(0))
             .add_return_data(Ok(0))
             .run(file_data, [], Ok(()))
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["upbuild"], Some(PathBuf::from("..")))
+            .verify_cd_dir(dot_dot_path.display().to_string().as_str())
             .done();
 
         TestRun::new()
@@ -492,6 +535,7 @@ mod tests {
             .run(file_data, [], Ok(()))
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["/path/to/upbuild"], Some(PathBuf::from("..")))
+            .verify_cd_dir(dot_dot_path.display().to_string().as_str())
             .done();
 
         let file_data = include_str!("../tests/norecurse.upbuild");
@@ -502,6 +546,7 @@ mod tests {
             .run(file_data, [], Ok(()))
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["/path/to/upbuild"], Some(PathBuf::from("/path/to/build")))
+            .verify_cd_dir("/path/to/build")
             .done();
     }
 }
