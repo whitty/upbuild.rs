@@ -1,8 +1,6 @@
 use super::{Error, Result, Config};
 use super::file::ClassicFile;
 
-use std::collections::HashSet;
-
 use std::os::unix::process::ExitStatusExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -40,41 +38,16 @@ impl Exec {
         Self { runner }
     }
 
-    /// Run the given classic file - no tags
-    pub fn run(&self, file: &ClassicFile) -> Result<()> {
-        let tags = HashSet::<String>::new();
-        self.run_with_tags(file, &tags, &tags)
-    }
-
-    // TODO - rewrite this to be the "main" on and make the others "helpers"
     /// Run the given classic file, args, and config
     pub fn run_with_config(&self, file: &ClassicFile, cfg: &Config, provided_args: &[String]) -> Result<()> {
-        self.run_with_tags_and_args(file, &cfg.select, &cfg.reject, provided_args, Some(cfg.argv0.clone()))
-    }
-
-    /// Run the given classic file and selected tags
-    pub fn run_with_tags(&self, file: &ClassicFile,
-                         select_tags: &HashSet<String>,
-                         reject_tags: &HashSet<String>) -> Result<()> {
-        self.run_with_tags_and_args(file, select_tags, reject_tags, &Vec::new(), None)
-    }
-
-    /// Run the given classic file and selected tags
-    pub fn run_with_tags_and_args(&self, file: &ClassicFile,
-                                  // TODO - take config instead of all the args
-                                  select_tags: &HashSet<String>,
-                                  reject_tags: &HashSet<String>,
-                                  provided_args: &[String],
-                                  argv0: Option<String>) -> Result<()> {
-
-        let argv0 = argv0.or_else(|| Some(String::from("upbuild")));
+        let argv0 = &cfg.argv0;
         for cmd in &file.commands {
-            if ! cmd.enabled_with_reject(select_tags, reject_tags) {
+            if ! cmd.enabled_with_reject(&cfg.select, &cfg.reject) {
                 continue;
             }
             let args = Self::with_args(cmd.args(), provided_args,
                                        if cmd.recurse() {
-                                           argv0.as_ref()
+                                           Some(argv0)
                                        } else {
                                            None
                                        }
@@ -186,7 +159,7 @@ impl Runner for PrintRunner {
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::{RefCell, RefMut}, collections::VecDeque, rc::Rc};
+    use std::{cell::{RefCell, RefMut}, collections::{HashSet, VecDeque}, rc::Rc};
 
     use super::*;
 
@@ -263,28 +236,42 @@ mod tests {
             self
         }
 
-        pub fn run_with_tags<const N: usize, const O: usize>(&self, file_data: &str, select_tags: [&str ;N], reject_tags: [&str ;O], expected_result: Result<()>) -> &Self {
+        fn run_with_tags<const N: usize, const O: usize>(&self, file_data: &str, select_tags: [&str ;N], reject_tags: [&str ;O], expected_result: Result<()>) -> &Self {
             self.run_with_tags_and_args(file_data, select_tags, reject_tags, [], expected_result)
         }
 
-        pub fn run_with_args<const N: usize>(&self, file_data: &str, provided_args: [&str; N], expected_result: Result<()>) -> &Self {
+        fn run_with_args<const N: usize>(&self, file_data: &str, provided_args: [&str; N], expected_result: Result<()>) -> &Self {
             self.run_with_tags_and_args(file_data, [], [], provided_args, expected_result)
         }
 
-        pub fn run_with_tags_and_args<const N: usize, const O: usize, const Q: usize>(&self, file_data: &str, select_tags: [&str ;N], reject_tags: [&str ;O], provided_args: [&str; Q], expected_result: Result<()>) -> &Self {
-            let select_tags = HashSet::from(select_tags.map(|x| x.to_string()));
-            let reject_tags = HashSet::from(reject_tags.map(|x| x.to_string()));
+        fn run_with_tags_and_args<const N: usize, const O: usize, const Q: usize>(&self, file_data: &str, select_tags: [&str ;N], reject_tags: [&str ;O], provided_args: [&str; Q], expected_result: Result<()>) -> &Self {
+
+            let cfg = Config {
+                argv0: self.argv0.clone().unwrap_or(String::from("upbuild")),
+                select: HashSet::from(select_tags.map(|x| x.to_string())),
+                reject: HashSet::from(reject_tags.map(|x| x.to_string())),
+                ..Default::default()
+            };
+
             let provided_args: Vec<String> = provided_args.into_iter().map(String::from).collect();
-            self.run_(file_data, |e,f| e.run_with_tags_and_args(f, &select_tags, &reject_tags, &provided_args, self.argv0.clone()), expected_result)
+            self.run_(file_data, |e,f| e.run_with_config(f, &cfg, &provided_args), expected_result)
         }
 
-        pub fn run_with_select_tags<const N: usize>(&self, file_data: &str, select_tags: [&str ;N], expected_result: Result<()>) -> &Self {
-            let tags = HashSet::from(select_tags.map(|x| x.to_string()));
-            self.run_(file_data, |e,f| e.run_with_tags(f, &tags, &HashSet::new()), expected_result)
+        fn run_with_select_tags<const N: usize>(&self, file_data: &str, select_tags: [&str ;N], expected_result: Result<()>) -> &Self {
+            let cfg = Config {
+                argv0: self.argv0.clone().unwrap_or(String::from("upbuild")),
+                select: HashSet::from(select_tags.map(|x| x.to_string())),
+                ..Default::default()
+            };
+            self.run_(file_data, |e,f| e.run_with_config(f, &cfg, &[]), expected_result)
         }
 
-        pub fn run(&self, file_data: &str, expected_result: Result<()>) -> &Self {
-            self.run_(file_data, |e,f| e.run(f), expected_result)
+        fn run(&self, file_data: &str, expected_result: Result<()>) -> &Self {
+            let cfg = Config {
+                argv0: self.argv0.clone().unwrap_or(String::from("upbuild")),
+                ..Default::default()
+            };
+            self.run_(file_data, |e,f| e.run_with_config(f, &cfg, &[]), expected_result)
         }
 
         fn run_<F>(&self, file_data: &str, f: F, expected_result: Result<()>) -> &Self
