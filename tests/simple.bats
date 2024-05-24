@@ -247,3 +247,29 @@ cat .upbuild
   run "$upbuild" "exit 2"
   [ "$status" -eq 4 ]
 }
+
+@test "find not local" {
+  mkdir -p 1/2/3/4
+  cd 1/2/3/4
+
+  run "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "upbuild: Entering directory \`$test_dir/1'
+dir 1
+2" ]
+}
+
+@test "find not local - actual directory" {
+  mkdir -p 1/2/3/4
+
+  cat > 1/2/.upbuild <<EOF
+pwd
+EOF
+
+  cd 1/2/3/4
+
+  run "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "upbuild: Entering directory \`$test_dir/1/2'
+$test_dir/1/2" ]
+}
