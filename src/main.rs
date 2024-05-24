@@ -27,7 +27,7 @@ fn run() -> Result<()> {
     );
 
     let args: Vec<String> = args.collect();
-    exec.run_with_config(&parsed_file, &cfg, &args)
+    exec.run(&parsed_file, &cfg, &args)
 }
 
 fn main() -> ExitCode {

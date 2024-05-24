@@ -39,7 +39,7 @@ impl Exec {
     }
 
     /// Run the given classic file, args, and config
-    pub fn run_with_config(&self, file: &ClassicFile, cfg: &Config, provided_args: &[String]) -> Result<()> {
+    pub fn run(&self, file: &ClassicFile, cfg: &Config, provided_args: &[String]) -> Result<()> {
         let argv0 = &cfg.argv0;
         for cmd in &file.commands {
             if ! cmd.enabled_with_reject(&cfg.select, &cfg.reject) {
@@ -251,7 +251,7 @@ mod tests {
 
         fn run<const N: usize>(&self, file_data: &str, provided_args: [&str; N], expected_result: Result<()>) -> &Self {
             let provided_args: Vec<String> = provided_args.into_iter().map(String::from).collect();
-            self.run_(file_data, |e,f| e.run_with_config(f, &self.cfg, &provided_args), expected_result)
+            self.run_(file_data, |e,f| e.run(f, &self.cfg, &provided_args), expected_result)
         }
 
         fn run_without_args(&self, file_data: &str, expected_result: Result<()>) -> &Self {
