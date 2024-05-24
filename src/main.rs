@@ -19,7 +19,7 @@ fn run() -> Result<()> {
             .map_while(std::result::Result::ok))?;
 
     let exec = Exec::new(
-        if cfg.print {
+        if cfg.print() {
             upbuild_rs::print_runner()
         } else {
             upbuild_rs::process_runner()

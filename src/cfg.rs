@@ -2,10 +2,16 @@ use std::collections::HashSet;
 
 #[derive(Debug, PartialEq)]
 pub struct Config {
-    pub print: bool,
-    pub select: HashSet<String>,
-    pub reject: HashSet<String>,
-    pub argv0: String,
+    pub(crate) print: bool,
+    pub(crate) select: HashSet<String>,
+    pub(crate) reject: HashSet<String>,
+    pub(crate) argv0: String,
+}
+
+impl Config {
+    pub fn print(&self) -> bool {
+        self.print
+    }
 }
 
 impl Default for Config {
@@ -103,7 +109,6 @@ mod tests {
     fn do_parse<const N: usize>(a: [&str; N]) -> (Vec<String>, Config) {
         let (v, args) = Config::parse(args(a));
         (v.collect(), args)
-        //parse(args(a)).collect()
     }
 
     #[test]
