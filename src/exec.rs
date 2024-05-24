@@ -214,21 +214,34 @@ mod tests {
 
     struct TestRun {
         test_data: Rc<RefCell<TestData>>,
-        argv0: Option<String>,
+        cfg: Config,
     }
 
     impl TestRun {
         fn new() -> TestRun {
             TestRun {
                 test_data: Rc::new(RefCell::new(TestData::default())),
-                argv0: None
+                cfg: Config::default(),
             }
         }
 
-        fn override_argv0<T: Into<String>>(&mut self, a: T) -> &Self {
-            self.argv0.replace(a.into());
+        fn override_argv0<T: Into<String>>(&mut self, a: T) -> &mut Self {
+            self.cfg.argv0 = a.into();
             self
         }
+
+        fn select<const N: usize>(&mut self, tags: [&str ;N]) -> &mut Self {
+            self.cfg.select = HashSet::from(tags.map(|x| x.to_string()));
+            self
+        }
+
+        fn reject<const N: usize>(&mut self, tags: [&str ;N]) -> &mut Self {
+            self.cfg.reject = HashSet::from(tags.map(|x| x.to_string()));
+            self
+        }
+
+        // REVIEW - above calls are mutable, below are not, so you need to chain
+        // them first
 
         fn add_return_data(&self, result: Result<RetCode>) -> &Self {
             let mut data: RefMut<'_, _> = self.test_data.borrow_mut();
@@ -236,42 +249,13 @@ mod tests {
             self
         }
 
-        fn run_with_tags<const N: usize, const O: usize>(&self, file_data: &str, select_tags: [&str ;N], reject_tags: [&str ;O], expected_result: Result<()>) -> &Self {
-            self.run_with_tags_and_args(file_data, select_tags, reject_tags, [], expected_result)
-        }
-
-        fn run_with_args<const N: usize>(&self, file_data: &str, provided_args: [&str; N], expected_result: Result<()>) -> &Self {
-            self.run_with_tags_and_args(file_data, [], [], provided_args, expected_result)
-        }
-
-        fn run_with_tags_and_args<const N: usize, const O: usize, const Q: usize>(&self, file_data: &str, select_tags: [&str ;N], reject_tags: [&str ;O], provided_args: [&str; Q], expected_result: Result<()>) -> &Self {
-
-            let cfg = Config {
-                argv0: self.argv0.clone().unwrap_or(String::from("upbuild")),
-                select: HashSet::from(select_tags.map(|x| x.to_string())),
-                reject: HashSet::from(reject_tags.map(|x| x.to_string())),
-                ..Default::default()
-            };
-
+        fn run<const N: usize>(&self, file_data: &str, provided_args: [&str; N], expected_result: Result<()>) -> &Self {
             let provided_args: Vec<String> = provided_args.into_iter().map(String::from).collect();
-            self.run_(file_data, |e,f| e.run_with_config(f, &cfg, &provided_args), expected_result)
+            self.run_(file_data, |e,f| e.run_with_config(f, &self.cfg, &provided_args), expected_result)
         }
 
-        fn run_with_select_tags<const N: usize>(&self, file_data: &str, select_tags: [&str ;N], expected_result: Result<()>) -> &Self {
-            let cfg = Config {
-                argv0: self.argv0.clone().unwrap_or(String::from("upbuild")),
-                select: HashSet::from(select_tags.map(|x| x.to_string())),
-                ..Default::default()
-            };
-            self.run_(file_data, |e,f| e.run_with_config(f, &cfg, &[]), expected_result)
-        }
-
-        fn run(&self, file_data: &str, expected_result: Result<()>) -> &Self {
-            let cfg = Config {
-                argv0: self.argv0.clone().unwrap_or(String::from("upbuild")),
-                ..Default::default()
-            };
-            self.run_(file_data, |e,f| e.run_with_config(f, &cfg, &[]), expected_result)
+        fn run_without_args(&self, file_data: &str, expected_result: Result<()>) -> &Self {
+            self.run(file_data, [], expected_result)
         }
 
         fn run_<F>(&self, file_data: &str, f: F, expected_result: Result<()>) -> &Self
@@ -350,7 +334,7 @@ mod tests {
         let uv4_run = ["uv4", "-j0", "-b", "project.uvproj", "-o", "log.txt"];
         TestRun::new()
             .add_return_data(Ok(0))
-            .run(file_data, Ok(()))
+            .run_without_args(file_data, Ok(()))
             .verify_return_data(uv4_run, None)
             .verify_outfile("log.txt")
             .done();
@@ -358,7 +342,7 @@ mod tests {
         // 1 should map to 0
         TestRun::new()
             .add_return_data(Ok(1))
-            .run(file_data, Ok(()))
+            .run_without_args(file_data, Ok(()))
             .verify_return_data(uv4_run, None)
             .verify_outfile("log.txt")
             .done();
@@ -366,14 +350,14 @@ mod tests {
         // 2 should fail though
         TestRun::new()
             .add_return_data(Ok(2))
-            .run(file_data, Err(Error::ExitWithExitCode(2)))
+            .run_without_args(file_data, Err(Error::ExitWithExitCode(2)))
             .verify_return_data(uv4_run, None)
             .done();
 
         // signals should be propagated
         TestRun::new()
             .add_return_data(Err(Error::ExitWithSignal(6)))
-            .run(file_data, Err(Error::ExitWithSignal(6)))
+            .run_without_args(file_data, Err(Error::ExitWithSignal(6)))
             .verify_return_data(uv4_run, None)
             .done();
     }
@@ -384,71 +368,80 @@ mod tests {
         TestRun::new()
             .add_return_data(Ok(0))
             .add_return_data(Ok(0))
-            .run(file_data, Ok(()))
+            .run_without_args(file_data, Ok(()))
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["make", "cross"], None)
             .done();
 
         TestRun::new()
             .add_return_data(Ok(1))
-            .run(file_data, Err(Error::ExitWithExitCode(1)))
+            .run_without_args(file_data, Err(Error::ExitWithExitCode(1)))
             .verify_return_data(["make", "tests"], None)
             .done();
 
         // select hosts tags
         TestRun::new()
+            .select(["host"])
             .add_return_data(Ok(0))
             .add_return_data(Ok(0))
-            .run_with_select_tags(file_data, ["host"], Ok(()))
+            .run_without_args(file_data, Ok(()))
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["make", "install"], None)
             .done();
 
         TestRun::new()
+            .select(["release"])
             .add_return_data(Ok(0))
-            .run_with_select_tags(file_data, ["release"], Ok(()))
+            .run_without_args(file_data, Ok(()))
             .verify_return_data(["make", "install"], None)
             .done();
 
         TestRun::new()
+            .select(["target"])
             .add_return_data(Ok(0))
-            .run_with_select_tags(file_data, ["target"], Ok(()))
+            .run_without_args(file_data, Ok(()))
             .verify_return_data(["make", "cross"], None)
             .done();
 
         TestRun::new()
+            .select(["target", "host"])
             .add_return_data(Ok(0))
             .add_return_data(Ok(0))
             .add_return_data(Ok(0))
-            .run_with_select_tags(file_data, ["target", "host"], Ok(()))
+            .run_without_args(file_data, Ok(()))
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["make", "cross"], None)
             .verify_return_data(["make", "install"], None)
             .done();
 
         TestRun::new()
+            .select(["target", "host"])
             .add_return_data(Ok(0))
             .add_return_data(Ok(1))
-            .run_with_select_tags(file_data, ["target", "host"], Err(Error::ExitWithExitCode(1)))
+            .run_without_args(file_data, Err(Error::ExitWithExitCode(1)))
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["make", "cross"], None)
             .done();
 
         TestRun::new()
+            .select(["host"])
+            .reject(["release"])
             .add_return_data(Ok(0))
-            .run_with_tags(file_data, ["host"], ["release"], Ok(()))
+            .run_without_args(file_data, Ok(()))
             .verify_return_data(["make", "tests"], None)
             .done();
 
         TestRun::new()
+            .reject(["host"])
             .add_return_data(Ok(0))
-            .run_with_tags(file_data, [], ["host"], Ok(()))
+            .run_without_args(file_data, Ok(()))
             .verify_return_data(["make", "cross"], None)
             .done();
 
         TestRun::new()
+            .select(["target"])
             .add_return_data(Ok(0))
-            .run_with_tags(file_data, ["target"], [], Ok(()))
+            .run_without_args(file_data, Ok(()))
             .verify_return_data(["make", "cross"], None)
             .done();
     }
@@ -459,7 +452,7 @@ mod tests {
         TestRun::new()
             .add_return_data(Ok(0))
             .add_return_data(Ok(0))
-            .run_with_args(file_data, [], Ok(()))
+            .run(file_data, [], Ok(()))
             .verify_return_data(["make", "-j8", "BUILD_MODE=host_debug", "test"], None)
             .verify_return_data(["echo"], None)
             .done();
@@ -467,7 +460,7 @@ mod tests {
         TestRun::new()
             .add_return_data(Ok(0))
             .add_return_data(Ok(0))
-            .run_with_args(file_data, ["all"], Ok(()))
+            .run(file_data, ["all"], Ok(()))
             .verify_return_data(["make", "-j8", "BUILD_MODE=host_debug", "all"], None)
             .verify_return_data(["echo", "all"], None)
             .done();
@@ -475,7 +468,7 @@ mod tests {
         TestRun::new()
             .add_return_data(Ok(0))
             .add_return_data(Ok(0))
-            .run_with_args(file_data, ["all", "tests"], Ok(()))
+            .run(file_data, ["all", "tests"], Ok(()))
             .verify_return_data(["make", "-j8", "BUILD_MODE=host_debug", "all", "tests"], None)
             .verify_return_data(["echo", "all", "tests"], None)
             .done();
@@ -487,7 +480,7 @@ mod tests {
         TestRun::new()
             .add_return_data(Ok(0))
             .add_return_data(Ok(0))
-            .run_with_args(file_data, [], Ok(()))
+            .run(file_data, [], Ok(()))
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["upbuild"], Some(PathBuf::from("..")))
             .done();
@@ -496,7 +489,7 @@ mod tests {
             .override_argv0("/path/to/upbuild")
             .add_return_data(Ok(0))
             .add_return_data(Ok(0))
-            .run_with_args(file_data, [], Ok(()))
+            .run(file_data, [], Ok(()))
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["/path/to/upbuild"], Some(PathBuf::from("..")))
             .done();
@@ -506,7 +499,7 @@ mod tests {
             .override_argv0("/path/to/upbuild")
             .add_return_data(Ok(0))
             .add_return_data(Ok(0))
-            .run_with_args(file_data, [], Ok(()))
+            .run(file_data, [], Ok(()))
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["/path/to/upbuild"], Some(PathBuf::from("/path/to/build")))
             .done();
