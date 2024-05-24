@@ -1,4 +1,4 @@
-use super::{Error, Result};
+use super::{Error, Result, Config};
 use super::file::ClassicFile;
 
 use std::collections::HashSet;
@@ -44,6 +44,12 @@ impl Exec {
     pub fn run(&self, file: &ClassicFile) -> Result<()> {
         let tags = HashSet::<String>::new();
         self.run_with_tags(file, &tags, &tags)
+    }
+
+    // TODO - rewrite this to be the "main" on and make the others "helpers"
+    /// Run the given classic file, args, and config
+    pub fn run_with_config(&self, file: &ClassicFile, cfg: &Config, provided_args: &[String]) -> Result<()> {
+        self.run_with_tags_and_args(file, &cfg.select, &cfg.reject, provided_args, Some(cfg.argv0.clone()))
     }
 
     /// Run the given classic file and selected tags
