@@ -102,6 +102,7 @@ echo 2 3" ]
   run "$upbuild"
   [ "$status" -eq 0 ]
   [ "$output" = "1.1
+upbuild: Entering directory \`$test_dir/1'
 1
 2" ]
 }
@@ -113,6 +114,7 @@ echo 2 3" ]
   run "$upbuild" 3
   [ "$status" -eq 0 ]
   [ "$output" = "3
+upbuild: Entering directory \`$test_dir/1'
 3
 2 3" ]
 }
