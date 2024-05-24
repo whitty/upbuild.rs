@@ -158,3 +158,29 @@ EOF
   [ "$output" = "ls -la -- --help" ]
   [ "$status" -eq 0 ]
 }
+
+@test "retmap" {
+  mkdir 4
+  cd 4
+  cat > .upbuild <<EOF
+sh
+-c
+@retmap=0=>1,1=>0,2=>4
+--
+exit 0
+EOF
+
+cat .upbuild
+
+  run "$upbuild"
+  [ "$status" -eq 1 ]
+
+  run "$upbuild" "exit 0"
+  [ "$status" -eq 1 ]
+
+  run "$upbuild" "exit 1"
+  [ "$status" -eq 0 ]
+
+  run "$upbuild" "exit 2"
+  [ "$status" -eq 4 ]
+}
