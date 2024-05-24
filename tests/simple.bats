@@ -137,3 +137,24 @@ EOF
 bar" ]
   [ "$status" -eq 0 ]
 }
+
+@test "multi --" {
+  mkdir 3
+  cd 3
+  cat > .upbuild <<EOF
+ls
+-la
+--
+--
+--help
+EOF
+
+  run "$upbuild"
+  echo "${lines[0]}" | grep -q -e "--help.*No such file or directory"
+  [ "$status" -ne 0 ]
+  output=""
+
+  run "$upbuild" --ub-print
+  [ "$output" = "ls -la -- --help" ]
+  [ "$status" -eq 0 ]
+}
