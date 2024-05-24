@@ -6,8 +6,15 @@ setup_file() {
 }
 
 setup() {
+  OLD_STYLE_ARGS_HANDLER=
+
   # ensure executable exists
   upbuild=$(readlink -f target/debug/upbuild)
+  #rb_ref=1 # set this and upbuild above to wire in old rb version
+  if [ -n "$rb_ref" ]; then
+    OLD_STYLE_ARGS_HANDLER=true
+  fi
+
   test -x "$upbuild"
 
   test_dir=$(mktemp -d)
@@ -31,6 +38,7 @@ EOF
 
   cat > 1/.upbuild <<EOF
 echo
+dir
 --
 1
 &&
@@ -56,7 +64,7 @@ teardown() {
 
   run "$upbuild"
   [ "$status" -eq 0 ]
-  [ "$output" = "1
+  [ "$output" = "dir 1
 2" ]
 }
 
@@ -65,7 +73,7 @@ teardown() {
 
   run "$upbuild" --ub-print
   [ "$status" -eq 0 ]
-  [ "$output" = "echo 1
+  [ "$output" = "echo dir 1
 echo 2" ]
 }
 
@@ -73,27 +81,69 @@ echo 2" ]
   cd 1
 
   run "$upbuild" --ub-print 3
-  [ "$output" = "echo 3
-echo 2 3" ]
   [ "$status" -eq 0 ]
+  if [ -n "$OLD_STYLE_ARGS_HANDLER" ]; then
+    # replaces all
+    [ "$output" = "echo dir 3
+echo 3" ]
+  else
+    [ "$output" = "echo dir 3
+echo 2 3" ]
+  fi
 }
 
 @test "basic run args" {
   cd 1
 
   run "$upbuild" 3
-  [ "$output" = "3
-2 3" ]
   [ "$status" -eq 0 ]
+  if [ -n "$OLD_STYLE_ARGS_HANDLER" ]; then
+    # replaces all
+    [ "$output" = "dir 3
+3" ]
+  else
+    [ "$output" = "dir 3
+2 3" ]
+  fi
 }
 
 @test "basic run -- args" {
   cd 1
 
   run "$upbuild" -- --ub-print
-  [ "$output" = "--ub-print
-2 --ub-print" ]
   [ "$status" -eq 0 ]
+  if [ -n "$OLD_STYLE_ARGS_HANDLER" ]; then
+    # replaces all
+    [ "$output" = "dir --ub-print
+--ub-print" ]
+  else
+    [ "$output" = "dir --ub-print
+2 --ub-print" ]
+fi
+}
+
+@test "run --" {
+  cd 1
+
+  run "$upbuild" --
+  [ "$output" = "dir 1
+2" ]
+  [ "$status" -eq 0 ]
+}
+
+@test "run -- --" {
+  cd 1
+
+  run "$upbuild" -- --
+  [ "$status" -eq 0 ]
+  if [ -n "$OLD_STYLE_ARGS_HANDLER" ]; then
+    # replaces all
+    [ "$output" = "dir --
+--" ]
+  else
+    [ "$output" = "dir --
+2 --" ]
+  fi
 }
 
 @test "recurse run" {
@@ -103,7 +153,7 @@ echo 2 3" ]
   [ "$status" -eq 0 ]
   [ "$output" = "1.1
 upbuild: Entering directory \`$test_dir/1'
-1
+dir 1
 2" ]
 }
 
@@ -113,10 +163,18 @@ upbuild: Entering directory \`$test_dir/1'
 
   run "$upbuild" 3
   [ "$status" -eq 0 ]
-  [ "$output" = "3
+  if [ -n "$OLD_STYLE_ARGS_HANDLER" ]; then
+    # replaces all
+    [ "$output" = "3
 upbuild: Entering directory \`$test_dir/1'
-3
+dir 3
+3" ]
+  else
+    [ "$output" = "3
+upbuild: Entering directory \`$test_dir/1'
+dir 3
 2 3" ]
+  fi
 }
 
 @test "outfile" {
