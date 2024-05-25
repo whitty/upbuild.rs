@@ -13,7 +13,7 @@ fn run() -> Result<()> {
     let upbuild_file = upbuild_rs::find(".")?;
 
     let parsed_file = ClassicFile::parse_lines(
-        std::fs::File::open(upbuild_file)
+        std::fs::File::open(&upbuild_file)
             .map(std::io::BufReader::new)?
             .lines()
             .map_while(std::result::Result::ok))?;
@@ -27,7 +27,7 @@ fn run() -> Result<()> {
     );
 
     let args: Vec<String> = args.collect();
-    exec.run(&parsed_file, &cfg, &args)
+    exec.run(upbuild_file.as_path(), &parsed_file, &cfg, &args)
 }
 
 fn main() -> ExitCode {

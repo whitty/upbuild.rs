@@ -26,7 +26,7 @@ pub struct Exec {
 
 pub trait Runner {
     /// Run a given command in the provided directory
-    fn run(&self, cmd: Vec<String>, cd: Option<PathBuf>) -> Result<RetCode>;
+    fn run(&self, cmd: Vec<String>, cd: &Option<PathBuf>) -> Result<RetCode>;
 
     /// Display output from a file defined by @outfile
     fn display_output(&self, file: &Path) -> Result<()>;
@@ -42,8 +42,31 @@ impl Exec {
         Self { runner }
     }
 
+    fn relative_dir(path: &Path) -> Option<PathBuf> {
+        if let Some(parent) = path.parent() {
+            if parent == Path::new(".") || parent == Path::new("") {
+                return None;
+            }
+            return Some(parent.into())
+        }
+        None
+    }
+
+    fn show_entering(&self, working_dir: &Option<PathBuf>) {
+        if let Some(ref d) = working_dir {
+            let dd = d.canonicalize();
+            let dir = dd.as_ref().unwrap_or(d);
+            self.runner.display(format!("upbuild: Entering directory `{}'", dir.display()).as_str());
+        }
+    }
+
     /// Run the given classic file, args, and config
-    pub fn run(&self, file: &ClassicFile, cfg: &Config, provided_args: &[String]) -> Result<()> {
+    pub fn run(&self, path: &Path, file: &ClassicFile, cfg: &Config, provided_args: &[String]) -> Result<()> {
+        let main_working_dir = Exec::relative_dir(path);
+        self.show_entering(&main_working_dir);
+
+        let mut last_dir = main_working_dir.clone(); // TODO clones
+
         let argv0 = &cfg.argv0;
         for cmd in &file.commands {
             if ! cmd.enabled_with_reject(&cfg.select, &cfg.reject) {
@@ -57,15 +80,19 @@ impl Exec {
                                        }
             );
 
-            let working_dir = cmd.directory();
+            let cmd_dir = cmd.directory();
+            let run_dir = if cmd_dir.is_some() {
+                &cmd_dir
+            } else {
+                &main_working_dir
+            };
 
-            if let Some(ref d) = working_dir {
-                let dd = d.canonicalize();
-                let dir = dd.as_ref().unwrap_or(d);
-                self.runner.display(format!("upbuild: Entering directory `{}'", dir.display()).as_str());
+            if run_dir != &last_dir {
+                self.show_entering(&cmd_dir);
+                last_dir = run_dir.clone(); // TODO clones
             }
 
-            let code = self.runner.run(args, working_dir)?;
+            let code = self.runner.run(args, run_dir)?;
             let c = cmd.map_code(code);
             if c != 0 {
                 return Err(Error::ExitWithExitCode(c));
@@ -127,13 +154,13 @@ struct ProcessRunner {
 }
 
 impl Runner for ProcessRunner {
-    fn run(&self, cmd: Vec<String>, cd: Option<PathBuf>) -> Result<RetCode> {
+    fn run(&self, cmd: Vec<String>, cd: &Option<PathBuf>) -> Result<RetCode> {
 
         if let Some((command, args)) = cmd.split_first() {
             let mut exec = Command::new(command);
             exec.args(args);
 
-            cd.inspect(|ref d| { exec.current_dir(d); });
+            cd.as_ref().inspect(|ref d| { exec.current_dir(d); });
 
             let result = exec.status()
                 .map_err(Error::FailedToExec)?;
@@ -164,7 +191,7 @@ struct PrintRunner {
 }
 
 impl Runner for PrintRunner {
-    fn run(&self, cmd: Vec<String>, _cd: Option<PathBuf>) -> Result<RetCode> {
+    fn run(&self, cmd: Vec<String>, _cd: &Option<PathBuf>) -> Result<RetCode> {
         println!("{}", cmd.join(" "));
         Ok(0)
     }
@@ -221,10 +248,10 @@ mod tests {
     }
 
     impl Runner for TestRunner {
-        fn run(&self, cmd: Vec<String>, cd: Option<PathBuf>) -> Result<RetCode> {
+        fn run(&self, cmd: Vec<String>, cd: &Option<PathBuf>) -> Result<RetCode> {
             let mut data = self.data.borrow_mut();
             println!("run cmd={:#?} cd={:#?} result={:#?}", cmd, cd, data.result);
-            data.run_data.push_back(RunData{cmd, cd});
+            data.run_data.push_back(RunData{cmd, cd: cd.clone()});
             data.result.pop_front().expect("Result wasn't set")
         }
 
@@ -279,7 +306,12 @@ mod tests {
 
         fn run<const N: usize>(&self, file_data: &str, provided_args: [&str; N], expected_result: Result<()>) -> &Self {
             let provided_args: Vec<String> = provided_args.into_iter().map(String::from).collect();
-            self.run_(file_data, |e,f| e.run(f, &self.cfg, &provided_args), expected_result)
+            self.run_(file_data, |e,f| e.run(Path::new(".upbuild"), f, &self.cfg, &provided_args), expected_result)
+        }
+
+        fn run_with_path<const N: usize>(&self, path: &str, file_data: &str, provided_args: [&str; N], expected_result: Result<()>) -> &Self {
+            let provided_args: Vec<String> = provided_args.into_iter().map(String::from).collect();
+            self.run_(file_data, |e,f| e.run(Path::new(path), f, &self.cfg, &provided_args), expected_result)
         }
 
         fn run_without_args(&self, file_data: &str, expected_result: Result<()>) -> &Self {
@@ -547,6 +579,37 @@ mod tests {
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["/path/to/upbuild"], Some(PathBuf::from("/path/to/build")))
             .verify_cd_dir("/path/to/build")
+            .done();
+    }
+
+    #[test]
+    fn non_local() {
+        let file_data = include_str!("../tests/manual.upbuild");
+
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .run_with_path(".upbuild", file_data, [], Ok(()))
+            .verify_return_data(["make", "tests"], None)
+            .verify_return_data(["make", "cross"], None)
+            .done();
+
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .run_with_path("./upbuild", file_data, [], Ok(()))
+            .verify_return_data(["make", "tests"], None)
+            .verify_return_data(["make", "cross"], None)
+            .done();
+
+        let dot_dot_path = PathBuf::from("..").canonicalize().unwrap();
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .run_with_path("../.upbuild", file_data, [], Ok(()))
+            .verify_return_data(["make", "tests"], Some("..".into()))
+            .verify_return_data(["make", "cross"], Some("..".into()))
+            .verify_cd_dir(dot_dot_path.display().to_string().as_str())
             .done();
     }
 }
