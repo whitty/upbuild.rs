@@ -5,3 +5,4 @@ BUILD_MODE=host_debug
 test
 &&
 echo
+foo
