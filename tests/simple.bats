@@ -273,3 +273,25 @@ EOF
   [ "$output" = "upbuild: Entering directory \`$test_dir/1/2'
 $test_dir/1/2" ]
 }
+
+@test "cd in and out" {
+  mkdir -p 1/2/3
+
+  cat > 1/2/.upbuild <<EOF
+pwd
+&&
+pwd
+@cd=3
+&&
+pwd
+EOF
+
+  cd 1/2
+
+  run "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$test_dir/1/2
+upbuild: Entering directory \`$test_dir/1/2/3'
+$test_dir/1/2/3
+$test_dir/1/2" ]
+}
