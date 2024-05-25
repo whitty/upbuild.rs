@@ -86,7 +86,7 @@ impl Exec {
                                            Some(argv0)
                                        } else {
                                            None
-                                       }
+                                       }, cfg.triple // OLD_STYLE_ARGS_HANDLER
             );
 
             let cmd_dir = cmd.directory();
@@ -115,9 +115,7 @@ impl Exec {
         Ok(())
     }
 
-    const OLD_STYLE_ARGS_HANDLER: bool = true;
-
-    fn with_args(args: std::slice::Iter<'_, String>, provided_args: &[String], argv0: Option<&String>) -> Vec<String> {
+    fn with_args(args: std::slice::Iter<'_, String>, provided_args: &[String], argv0: Option<&String>, triple: bool) -> Vec<String> {
         // map helper for selecting argv[0] from args or argv0
         let mut replace_first = argv0.is_some();
         let replace_argv0 = |x| {
@@ -129,7 +127,7 @@ impl Exec {
             }
         };
 
-        if provided_args.is_empty() {
+        if provided_args.is_empty() && !(crate::OLD_STYLE_ARGS_HANDLER && triple) {
 
             let mut first_separator = true;
             return args
@@ -145,7 +143,7 @@ impl Exec {
                 .collect();
         }
 
-        if Self::OLD_STYLE_ARGS_HANDLER {
+        if super::OLD_STYLE_ARGS_HANDLER {
 
             // I'm just going to hack this in to get the tests passing then back it out
             let mut has_dash_dash = false;
@@ -569,7 +567,7 @@ mod tests {
             .verify_return_data(["echo", "foo"], None)
             .done();
 
-        if Exec::OLD_STYLE_ARGS_HANDLER {
+        if crate::OLD_STYLE_ARGS_HANDLER {
 
             TestRun::new()
                 .add_return_data(Ok(0))

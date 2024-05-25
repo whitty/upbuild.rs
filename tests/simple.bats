@@ -6,7 +6,7 @@ setup_file() {
 }
 
 setup() {
-  OLD_STYLE_ARGS_HANDLER=
+  OLD_STYLE_ARGS_HANDLER=true
 
   # ensure executable exists
   upbuild=$(readlink -f target/debug/upbuild)
@@ -143,6 +143,21 @@ fi
   else
     [ "$output" = "dir --
 2 --" ]
+  fi
+}
+
+@test "run ---" {
+  cd 1
+
+  run "$upbuild" ---
+  [ "$status" -eq 0 ]
+  if [ -n "$OLD_STYLE_ARGS_HANDLER" ]; then
+    # replaces all
+    [ "$output" = "dir" ]
+  else
+    # --- isn't handled specially - just passed through as args
+    [ "$output" = "dir ---
+2 ---" ]
   fi
 }
 

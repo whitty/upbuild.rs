@@ -3,6 +3,7 @@ use std::collections::HashSet;
 #[derive(Debug, PartialEq)]
 pub struct Config {
     pub(crate) print: bool,
+    pub(crate) triple: bool, // OLD_STYLE_ARGS_HANDLER
     pub(crate) select: HashSet<String>,
     pub(crate) reject: HashSet<String>,
     pub(crate) argv0: String,
@@ -17,7 +18,8 @@ impl Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            print: Default::default(),
+            print: false,
+            triple: false,
             select: Default::default(),
             reject: Default::default(),
             argv0: String::from("upbuild"),
@@ -67,7 +69,13 @@ impl Config {
                     "ub-print" => {
                         cfg.print = true;
                     },
-                    "-" => todo!("--- not handled yet"),
+                    "-" => { // ---
+                        if super::OLD_STYLE_ARGS_HANDLER {
+                            cfg.triple = true;  args.next(); break;
+                        } else {
+                            break; // Not handled
+                        }
+                    },
                     "" => { args.next(); break; },
                     _ => {
                         if arg.starts_with("--ub-select=") {
