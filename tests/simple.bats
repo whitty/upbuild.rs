@@ -6,7 +6,7 @@ setup_file() {
 }
 
 setup() {
-  OLD_STYLE_ARGS_HANDLER=true
+  OLD_STYLE_ARGS_HANDLER=
 
   # ensure executable exists
   upbuild=$(readlink -f target/debug/upbuild)

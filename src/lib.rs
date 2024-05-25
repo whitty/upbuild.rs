@@ -20,4 +20,4 @@ pub type Error = error::Error;
 pub type Result<T> = std::result::Result<T, error::Error>;
 
 // Handle missing "--"  from commands using the older style
-const OLD_STYLE_ARGS_HANDLER: bool = true;
+const OLD_STYLE_ARGS_HANDLER: bool = false;
