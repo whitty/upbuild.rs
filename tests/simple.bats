@@ -290,8 +290,17 @@ EOF
 
   run "$upbuild"
   [ "$status" -eq 0 ]
-  [ "$output" = "$test_dir/1/2
+  if [ -z "$rb_ref" ]; then
+    [ "$output" = "$test_dir/1/2
+upbuild: Entering directory \`$test_dir/1/2/3'
+$test_dir/1/2/3
+upbuild: Entering directory \`$test_dir/1/2'
+$test_dir/1/2" ]
+  else
+    # Old rb version didn't report return back to original dir
+    [ "$output" = "$test_dir/1/2
 upbuild: Entering directory \`$test_dir/1/2/3'
 $test_dir/1/2/3
 $test_dir/1/2" ]
+  fi
 }

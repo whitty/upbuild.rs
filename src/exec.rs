@@ -52,12 +52,21 @@ impl Exec {
         None
     }
 
+    // Show entering message
     fn show_entering(&self, working_dir: &Option<PathBuf>) {
         if let Some(ref d) = working_dir {
-            let dd = d.canonicalize();
-            let dir = dd.as_ref().unwrap_or(d);
+            let dd = d.canonicalize(); // full path
+            let dir = dd.as_ref().unwrap_or(d); // or fallback to d
             self.runner.display(format!("upbuild: Entering directory `{}'", dir.display()).as_str());
         }
+    }
+
+    fn show_entering_always(&self, working_dir: &Option<PathBuf>) {
+        if working_dir.is_none() {
+            let dot = Some(PathBuf::from("."));
+            return self.show_entering(&dot);
+        }
+        self.show_entering(working_dir)
     }
 
     /// Run the given classic file, args, and config
@@ -88,7 +97,7 @@ impl Exec {
             };
 
             if run_dir != &last_dir {
-                self.show_entering(&cmd_dir);
+                self.show_entering_always(run_dir); // after initial cd always show any change
                 last_dir = run_dir.clone(); // TODO clones
             }
 
@@ -250,7 +259,7 @@ mod tests {
     impl Runner for TestRunner {
         fn run(&self, cmd: Vec<String>, cd: &Option<PathBuf>) -> Result<RetCode> {
             let mut data = self.data.borrow_mut();
-            println!("run cmd={:#?} cd={:#?} result={:#?}", cmd, cd, data.result);
+            println!("run cmd={:#?} cd={:#?} result={:#?}", cmd, cd, data.result.front());
             data.run_data.push_back(RunData{cmd, cd: cd.clone()});
             data.result.pop_front().expect("Result wasn't set")
         }
@@ -365,8 +374,8 @@ mod tests {
             self
         }
 
-        fn verify_cd_dir(&self, dir: &str) -> &Self {
-            let expected = format!("upbuild: Entering directory `{}'", dir);
+        fn verify_cd_dir<S: AsRef<str>>(&self, dir: S) -> &Self {
+            let expected = format!("upbuild: Entering directory `{}'", dir.as_ref());
             self.verify_cd_comment(expected.as_str())
         }
 
@@ -602,14 +611,65 @@ mod tests {
             .verify_return_data(["make", "cross"], None)
             .done();
 
-        let dot_dot_path = PathBuf::from("..").canonicalize().unwrap();
+        let dot_dot_path = PathBuf::from("..").canonicalize().unwrap().display().to_string();
         TestRun::new()
             .add_return_data(Ok(0))
             .add_return_data(Ok(0))
             .run_with_path("../.upbuild", file_data, [], Ok(()))
             .verify_return_data(["make", "tests"], Some("..".into()))
             .verify_return_data(["make", "cross"], Some("..".into()))
-            .verify_cd_dir(dot_dot_path.display().to_string().as_str())
+            .verify_cd_dir(&dot_dot_path)
+            .done();
+
+        // Should show when we revert back to original dir (if it wasn't already printed)
+        let dot_path = PathBuf::from(".").canonicalize().unwrap().display().to_string();
+        let file_data = include_str!("../tests/cd.upbuild");
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .run(file_data, [], Ok(()))
+            .verify_return_data(["echo", "1"], None)
+            .verify_return_data(["echo", "2"], Some("/some/dir".into()))
+            .verify_return_data(["echo", "3"], Some("/some/dir".into()))
+            .verify_return_data(["echo", "4"], None)
+            .verify_return_data(["echo", "5"], Some("/some/dir".into()))
+            .verify_return_data(["echo", "6"], Some("/some/other/dir".into()))
+            .verify_return_data(["echo", "7"], None)
+            .verify_cd_dir("/some/dir")
+            .verify_cd_dir(&dot_path)
+            .verify_cd_dir("/some/dir")
+            .verify_cd_dir("/some/other/dir")
+            .verify_cd_dir(&dot_path)
+            .done();
+
+        // Should show when we revert back to original dir (if it wasalready printed)
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .run_with_path("../.upbuild", file_data, [], Ok(()))
+            .verify_return_data(["echo", "1"], Some("..".into()))
+            .verify_return_data(["echo", "2"], Some("/some/dir".into()))
+            .verify_return_data(["echo", "3"], Some("/some/dir".into()))
+            .verify_return_data(["echo", "4"], Some("..".into()))
+            .verify_return_data(["echo", "5"], Some("/some/dir".into()))
+            .verify_return_data(["echo", "6"], Some("/some/other/dir".into()))
+            .verify_return_data(["echo", "7"], Some("..".into()))
+            .verify_cd_dir(&dot_dot_path)
+            .verify_cd_dir("/some/dir")
+            .verify_cd_dir(&dot_dot_path)
+            .verify_cd_dir("/some/dir")
+            .verify_cd_dir("/some/other/dir")
+            .verify_cd_dir(&dot_dot_path)
             .done();
     }
 }
