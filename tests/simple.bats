@@ -128,10 +128,13 @@ foo
 @outfile=log.txt
 EOF
 
-  run "$upbuild"
-  [ "${lines[0]}" = "foo" ]
-  echo "${lines[1]}" | grep -q "Unable to read @outfile=log.txt"
-  [ "$status" -ne 0 ]
+  # Old rb version didn't fail here
+  if [ -z "$rb_ref" ]; then
+    run "$upbuild"
+    [ "${lines[0]}" = "foo" ]
+    echo "${lines[1]}" | grep -q "Unable to read @outfile=log.txt"
+    [ "$status" -ne 0 ]
+  fi
 
   echo bar > log.txt
   run "$upbuild"
