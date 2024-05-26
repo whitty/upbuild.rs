@@ -1,10 +1,13 @@
+# Upbuild.rs
+
+`upbuild-rs` is a rust reimplementation of my hacky integration helper
+`upbuild` as seen [here](https://github.com/whitty/upbuild).  The
+remainder of this README comes from version 0.8.0 of the `rb` version
+and should exist as an aspirational product definition.
+
 # Upbuild
 
 Simple directory tree build helper
-
-## Installation
-
-    $ gem install upbuild
 
 ## Usage
 
