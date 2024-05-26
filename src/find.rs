@@ -1,16 +1,52 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // (C) Copyright 2024 Greg Whiteley
 
-use std::{fs, os::linux::fs::MetadataExt, path::PathBuf};
+use std::{fs, path::PathBuf};
 use super::{Error, Result};
 
 fn readable(p: &PathBuf) -> bool {
     fs::File::open(p).is_ok()
 }
 
+#[cfg(target_family = "unix")]
 fn inode(p: &PathBuf) -> u64 {
-    fs::metadata(p).unwrap().st_ino()
+    use std::os::unix::fs::MetadataExt;
+    fs::metadata(p).unwrap().ino()
 }
+
+#[cfg(not(target_family = "unix"))]
+fn inode(_: &PathBuf) -> fake_inode::Inode {
+    // since these never compare we should stop at MAX_DEPTH instead
+    fake_inode::Inode{}
+}
+
+mod fake_inode {
+    #[derive(Debug, Copy, Clone)]
+    pub(super) struct Inode {
+    }
+
+    impl PartialEq for Inode {
+        // never equal
+        fn eq(&self, _other: &Self) -> bool {
+            false
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+
+        #[test]
+        fn fake_inode() {
+            use super::Inode;
+            let i = Inode{};
+            let j = Inode{};
+            assert_ne!(i, j);
+            assert_ne!(i, i);
+            assert_ne!(j, i);
+        }
+    }
+}
+
 
 // Ensure we don't recurse forever
 const MAX_DEPTH: usize = 128;
