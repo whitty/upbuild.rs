@@ -4,7 +4,6 @@
 use super::{Error, Result, Config};
 use super::file::ClassicFile;
 
-use std::os::unix::process::ExitStatusExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -209,7 +208,7 @@ impl Runner for ProcessRunner {
                 Some(c) => {
                     Ok(RetCode::try_from(c).expect("isize couldn't contain i32"))
                 },
-                None => Err(Error::ExitWithSignal(result.signal().unwrap().try_into().unwrap()))
+                None => Err(Self::no_result_code(result))
             }
 
         } else {
@@ -225,6 +224,19 @@ impl Runner for ProcessRunner {
         println!("{}", s)
     }
 
+}
+
+impl ProcessRunner {
+    #[cfg(target_family = "unix")]
+    fn no_result_code(result: std::process::ExitStatus) -> Error {
+        use std::os::unix::process::ExitStatusExt;
+        Error::ExitWithSignal(result.signal().unwrap().try_into().unwrap())
+    }
+
+    #[cfg(not(target_family = "unix"))]
+    fn no_result_code(_result: std::process::ExitStatus) -> Error {
+        Error::ExitWithSignal(127)
+    }
 }
 
 struct PrintRunner {
