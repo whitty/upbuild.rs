@@ -221,6 +221,22 @@ impl ClassicFile {
             commands: entries,
         })
     }
+
+    pub fn add(provided_args: &[String], path: PathBuf) -> Result<()> {
+        use std::io::{Seek, Write, SeekFrom};
+
+        let mut f = std::fs::File::options()
+            .create(true)
+            .truncate(false)
+            .write(true).open(path)?;
+
+        let pos = f.seek(SeekFrom::End(0))?;
+        if pos != 0 {
+            let _ = f.write_all("&&\n".as_bytes());
+        }
+        f.write_all((provided_args.join("\n") + "\n").as_bytes())?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]

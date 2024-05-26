@@ -319,3 +319,27 @@ $test_dir/1/2/3
 $test_dir/1/2" ]
   fi
 }
+
+@test "--ub-add" {
+  mkdir -p 1/2
+  cd 1/2
+
+  [ ! -f .upbuild ]
+
+  run "$upbuild" --ub-add pwd
+  [ "$status" -eq 0 ]
+  [ "$output" = "" ]
+
+  content=$(cat .upbuild)
+  [ "$content" = "pwd" ]
+
+  run "$upbuild" --ub-add echo $(pwd)
+  [ "$status" -eq 0 ]
+  [ "$output" = "" ]
+
+  content=$(cat .upbuild)
+  [ "$content" = "pwd
+&&
+echo
+$test_dir/1/2" ]
+}

@@ -6,12 +6,17 @@ pub struct Config {
     pub(crate) triple: bool, // OLD_STYLE_ARGS_HANDLER
     pub(crate) select: HashSet<String>,
     pub(crate) reject: HashSet<String>,
+    pub(crate) add: bool,
     pub(crate) argv0: String,
 }
 
 impl Config {
     pub fn print(&self) -> bool {
         self.print
+    }
+
+    pub fn add(&self) -> bool {
+        self.add
     }
 }
 
@@ -22,6 +27,7 @@ impl Default for Config {
             triple: false,
             select: Default::default(),
             reject: Default::default(),
+            add: false,
             argv0: String::from("upbuild"),
         }
     }
@@ -68,6 +74,9 @@ impl Config {
                 match s {
                     "ub-print" => {
                         cfg.print = true;
+                    },
+                    "ub-add" => {
+                        cfg.add = true;
                     },
                     "-" => { // ---
                         if super::OLD_STYLE_ARGS_HANDLER {
