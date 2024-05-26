@@ -1,4 +1,7 @@
 #!/usr/bin/env bats
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+# (C) Copyright 2024 Greg Whiteley
 
 setup_file() {
   # ensure we have up to date build

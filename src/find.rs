@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// (C) Copyright 2024 Greg Whiteley
+
 use std::{fs, os::linux::fs::MetadataExt, path::PathBuf};
 use super::{Error, Result};
 

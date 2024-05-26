@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// (C) Copyright 2024 Greg Whiteley
+
 #![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// (C) Copyright 2024 Greg Whiteley
+//
 //! `upbuild_rs` is a rust reimplementation of my hacky integration
 //! helper `upbuild` as seen [here](https://github.com/whitty/upbuild).
 
