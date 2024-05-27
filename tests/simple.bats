@@ -4,18 +4,24 @@
 # (C) Copyright 2024 Greg Whiteley
 
 setup_file() {
-  # ensure we have up to date build
-  cargo build
+  if [ -z "$UPBUILD_OVERRIDE" ]; then
+    # ensure we have up to date build
+    cargo build
+  fi
 }
 
 setup() {
   OLD_STYLE_ARGS_HANDLER=
 
-  # ensure executable exists
-  upbuild=$(readlink -f target/debug/upbuild)
-  #rb_ref=1 # set this and upbuild above to wire in old rb version
-  if [ -n "$rb_ref" ]; then
-    OLD_STYLE_ARGS_HANDLER=true
+  if [ -n "$UPBUILD_OVERRIDE" ]; then
+    upbuild="$UPBUILD_OVERRIDE"
+  else
+    # ensure executable exists
+    upbuild=$(readlink -f target/debug/upbuild)
+    #rb_ref=1 # set this and upbuild above to wire in old rb version
+    if [ -n "$rb_ref" ]; then
+      OLD_STYLE_ARGS_HANDLER=true
+    fi
   fi
 
   test -x "$upbuild"
