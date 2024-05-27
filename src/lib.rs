@@ -4,6 +4,8 @@
 //! `upbuild_rs` is a rust reimplementation of my hacky integration
 //! helper `upbuild` as seen [here](https://github.com/whitty/upbuild).
 
+#![warn(missing_docs)]
+
 mod error;
 mod file;
 mod exec;
@@ -19,8 +21,10 @@ pub use exec::print_runner;
 pub use find::find;
 pub use cfg::Config;
 
+/// The Error type for this tool
 pub type Error = error::Error;
-pub type Result<T> = std::result::Result<T, error::Error>;
+/// Bind the implied Error type for convenience
+pub type Result<T> = std::result::Result<T, Error>;
 
 // Handle missing "--"  from commands using the older style
 const OLD_STYLE_ARGS_HANDLER: bool = false;

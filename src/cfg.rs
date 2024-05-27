@@ -3,6 +3,7 @@
 
 use std::collections::HashSet;
 
+/// Config object to hold the result of parsing the command-line arguments
 #[derive(Debug, PartialEq, Eq)]
 pub struct Config {
     pub(crate) print: bool,
@@ -14,10 +15,13 @@ pub struct Config {
 }
 
 impl Config {
+
+    /// returns true if `--ub-print` was selected
     pub fn print(&self) -> bool {
         self.print
     }
 
+    /// returns true if `--ub-add` was provided
     pub fn add(&self) -> bool {
         self.add
     }

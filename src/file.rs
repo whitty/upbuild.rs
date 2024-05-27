@@ -225,6 +225,8 @@ impl ClassicFile {
         })
     }
 
+    /// Implement --ub-add, adding the provided_args to the .upbuild file
+    /// at the given path - creating if if required.
     pub fn add(provided_args: &[String], path: PathBuf) -> Result<()> {
         use std::io::{Seek, Write, SeekFrom};
 
