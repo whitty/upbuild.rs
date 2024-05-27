@@ -71,6 +71,18 @@ impl Exec {
         self.show_entering(working_dir)
     }
 
+    fn run_dir(main_working_dir: &Option<PathBuf>, cmd_dir: Option<PathBuf>) -> Option<PathBuf> {
+        match cmd_dir {
+            Some(d) => {
+                match main_working_dir {
+                    Some(m) => Some(m.join(d)), // join squashes LHS if RHS is absolute
+                    None => Some(d),
+                }
+            },
+            None => main_working_dir.clone() // TODO clones
+        }
+    }
+
     /// Run the given classic file, args, and config
     pub fn run(&self, path: &Path, file: &ClassicFile, cfg: &Config, provided_args: &[String]) -> Result<()> {
         let main_working_dir = Exec::relative_dir(path);
@@ -92,18 +104,14 @@ impl Exec {
             );
 
             let cmd_dir = cmd.directory();
-            let run_dir = if cmd_dir.is_some() {
-                &cmd_dir
-            } else {
-                &main_working_dir
-            };
+            let run_dir = Self::run_dir(&main_working_dir, cmd_dir);
 
-            if run_dir != &last_dir {
-                self.show_entering_always(run_dir); // after initial cd always show any change
+            if run_dir != last_dir {
+                self.show_entering_always(&run_dir); // after initial cd always show any change
                 last_dir = run_dir.clone(); // TODO clones
             }
 
-            let code = self.runner.run(args, run_dir)?;
+            let code = self.runner.run(args, &run_dir)?;
             let c = cmd.map_code(code);
             if c != 0 {
                 return Err(Error::ExitWithExitCode(c));
@@ -699,6 +707,7 @@ mod tests {
             .add_return_data(Ok(0))
             .add_return_data(Ok(0))
             .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
             .run(file_data, [], Ok(()))
             .verify_return_data(["echo", "1"], None)
             .verify_return_data(["echo", "2"], Some("/some/dir".into()))
@@ -707,15 +716,18 @@ mod tests {
             .verify_return_data(["echo", "5"], Some("/some/dir".into()))
             .verify_return_data(["echo", "6"], Some("/some/other/dir".into()))
             .verify_return_data(["echo", "7"], None)
+            .verify_return_data(["echo", "8"], some_path("some/subdir"))
             .verify_cd_dir("/some/dir")
             .verify_cd_dir(&dot_path)
             .verify_cd_dir("/some/dir")
             .verify_cd_dir("/some/other/dir")
             .verify_cd_dir(&dot_path)
+            .verify_cd_dir("some/subdir")
             .done();
 
         // Should show when we revert back to original dir (if it wasalready printed)
         TestRun::new()
+            .add_return_data(Ok(0))
             .add_return_data(Ok(0))
             .add_return_data(Ok(0))
             .add_return_data(Ok(0))
@@ -731,12 +743,41 @@ mod tests {
             .verify_return_data(["echo", "5"], Some("/some/dir".into()))
             .verify_return_data(["echo", "6"], Some("/some/other/dir".into()))
             .verify_return_data(["echo", "7"], Some("..".into()))
+            .verify_return_data(["echo", "8"], some_path("../some/subdir"))
             .verify_cd_dir(&dot_dot_path)
             .verify_cd_dir("/some/dir")
             .verify_cd_dir(&dot_dot_path)
             .verify_cd_dir("/some/dir")
             .verify_cd_dir("/some/other/dir")
             .verify_cd_dir(&dot_dot_path)
+            .verify_cd_dir("../some/subdir")
             .done();
+    }
+
+    fn some_path(s: &str) -> Option<PathBuf> {
+        Some(PathBuf::from(s))
+    }
+
+    #[test]
+    fn run_dir() {
+        let main_working_dir = None;
+        assert_eq!(Exec::run_dir(&main_working_dir, None), None);
+        assert_eq!(Exec::run_dir(&main_working_dir, Some("..".into())), some_path(".."));
+        assert_eq!(Exec::run_dir(&main_working_dir, Some("/a".into())), some_path("/a"));
+
+        let main_working_dir = Some(PathBuf::from(".."));
+        assert_eq!(Exec::run_dir(&main_working_dir, None), some_path(".."));
+        assert_eq!(Exec::run_dir(&main_working_dir, Some("..".into())), some_path("../.."));
+        assert_eq!(Exec::run_dir(&main_working_dir, Some("/a".into())), some_path("/a"));
+
+        let main_working_dir = Some(PathBuf::from("/b"));
+        assert_eq!(Exec::run_dir(&main_working_dir, None), some_path("/b"));
+        assert_eq!(Exec::run_dir(&main_working_dir, Some("..".into())), some_path("/b/.."));
+        assert_eq!(Exec::run_dir(&main_working_dir, Some("/a".into())), some_path("/a"));
+
+        let main_working_dir = Some(PathBuf::from("b"));
+        assert_eq!(Exec::run_dir(&main_working_dir, None), some_path("b"));
+        assert_eq!(Exec::run_dir(&main_working_dir, Some("..".into())), some_path("b/.."));
+        assert_eq!(Exec::run_dir(&main_working_dir, Some("/a".into())), some_path("/a"));
     }
 }

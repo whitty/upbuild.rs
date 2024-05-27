@@ -329,6 +329,37 @@ $test_dir/1/2" ]
   fi
 }
 
+@test "cd in and out - relative" {
+  mkdir -p 1/2/3
+
+  cat > 1/.upbuild <<EOF
+pwd
+@cd=2
+&&
+pwd
+@cd=2/3
+EOF
+
+  cd 1/2/3
+
+  run "$upbuild"
+  [ "$status" -eq 0 ]
+  if [ -z "$rb_ref" ]; then
+    [ "$output" = "upbuild: Entering directory \`$test_dir/1'
+upbuild: Entering directory \`$test_dir/1/2'
+$test_dir/1/2
+upbuild: Entering directory \`$test_dir/1/2/3'
+$test_dir/1/2/3" ]
+  else
+    # Old rb version didn't report return back to original dir
+    [ "$output" = "upbuild: Entering directory \`$test_dir/1'
+upbuild: Entering directory \`$test_dir/1/2'
+$test_dir/1/2
+upbuild: Entering directory \`$test_dir/1/2/3'
+$test_dir/1/2/3" ]
+  fi
+}
+
 @test "--ub-add" {
   mkdir -p 1/2
   cd 1/2

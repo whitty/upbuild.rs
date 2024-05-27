@@ -22,3 +22,7 @@ echo
 &&
 echo
 7
+&&
+echo
+@cd=some/subdir
+8
