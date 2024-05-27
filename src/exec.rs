@@ -199,7 +199,10 @@ impl Runner for ProcessRunner {
             let mut exec = Command::new(command);
             exec.args(args);
 
-            cd.as_ref().inspect(|ref d| { exec.current_dir(d); });
+            // TODO - was .inspect(), but not available in 1.63
+            if let Some(ref d) = cd.as_ref() {
+                exec.current_dir(d);
+            }
 
             let result = exec.status()
                 .map_err(Error::FailedToExec)?;
