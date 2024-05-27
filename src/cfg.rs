@@ -3,7 +3,7 @@
 
 use std::collections::HashSet;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Config {
     pub(crate) print: bool,
     pub(crate) triple: bool, // OLD_STYLE_ARGS_HANDLER

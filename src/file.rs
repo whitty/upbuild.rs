@@ -116,7 +116,7 @@ enum Line {
 fn parse_retmap(def: &str) -> Result<HashMap<RetCode, RetCode>> {
     let mut h: HashMap<RetCode, RetCode> = HashMap::new();
     for entry in def.split(',') {
-        let parts = entry.split_once("=>").ok_or(Error::InvalidRetMapDefinition(def.to_string()))?;
+        let parts = entry.split_once("=>").ok_or_else(|| Error::InvalidRetMapDefinition(def.to_string()))?;
         let a = str::parse::<RetCode>(parts.0).map_err(|_| Error::InvalidRetMapDefinition(parts.0.to_string()))?;
         let b = str::parse::<RetCode>(parts.1).map_err(|_| Error::InvalidRetMapDefinition(parts.1.to_string()))?;
         h.insert(a, b);
