@@ -81,6 +81,15 @@ for (ver in build_os_vers) {
         sh "sudo apt install -y ../upbuild-rs_*.deb"
       }
 
+      stage("${version}-deb-test") {
+        warnError("installed-test-${version}") {
+          sh "git clean -xffd"
+          sh "sudo apt update && sudo apt install --no-install-recommends -y bats"
+          sh 'env UPBUILD_OVERRIDE=/usr/bin/upbuild bats tests/'
+          sh "git clean -xffd"
+        }
+      }
+
     } //node
 
   } // parallel_versions
