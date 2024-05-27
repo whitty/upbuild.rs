@@ -1,0 +1,39 @@
+#!/usr/bin/make -f
+# See debhelper(7) (uncomment to enable)
+# output every command that modifies files on the build system.
+#export DH_VERBOSE = 1
+
+include /usr/share/dpkg/default.mk
+include /usr/share/rustc/architecture.mk
+
+export CARGO=/usr/share/cargo/bin/cargo
+export CARGO_HOME=$(shell pwd)/debian/cargo_home
+export CARGO_REGISTRY=$(shell pwd)/debian/cargo_registry
+export DEB_CARGO_CRATE=$(DEB_SOURCE)_$(DEB_VERSION_UPSTREAM)
+export DEB_HOST_RUST_TYPE
+
+%:
+	dh $@ --buildsystem=cargo
+
+# generate cargo-checksum file
+_mkchecksum = printf '{"package":"%s","files":{}}\n' \
+ $$(sha256sum $(or $2,$(dir $1)Cargo.toml) | grep -Po '^\S+') > $1;
+execute_before_dh_auto_configure:
+	$(call _mkchecksum,debian/cargo-checksum.json,Cargo.toml)
+	$(CARGO) prepare-debian $(CARGO_REGISTRY) --link-from-system
+	rm -f Cargo.lock
+
+override_dh_auto_build:
+	$(CARGO) build --release
+
+override_dh_auto_test:
+
+override_dh_auto_install:
+	dh_install target/$(DEB_HOST_RUST_TYPE)/release/upbuild /usr/bin/
+	dh_install README.md /usr/share/doc/upbuild-rs/
+
+execute_after_dh_auto_clean:
+	$(CARGO) clean
+	rm -rf $(CARGO_HOME)
+	rm -rf $(CARGO_REGISTRY)
+	rm -f debian/cargo-checksum.json

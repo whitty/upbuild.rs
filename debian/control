@@ -1,0 +1,15 @@
+Source: upbuild.rs
+Section: misc
+Priority: optional
+Maintainer: Greg Whiteley <greg.whiteley@gmail.com>
+Build-Depends: debhelper-compat (= 13), dh-cargo, cargo:native, rustc:native
+Standards-Version: 4.6.0
+X-Cargo-Crate: upbuild.rs
+Homepage: https://github.com/whitty/upbuild.rs
+Rules-Requires-Root: no
+
+Package: upbuild-rs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Simple directory tree build helper - ported from ruby
+ This is a test rust package example

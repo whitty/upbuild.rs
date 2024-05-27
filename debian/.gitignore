@@ -1,0 +1,8 @@
+.debhelper/
+debhelper-build-stamp
+files
+upbuild-rs/
+*.substvars
+*.debhelper*
+cargo-checksum.json
+cargo_home/
