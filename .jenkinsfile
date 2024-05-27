@@ -61,5 +61,29 @@ for (ver in build_os_vers) {
 
   } // parallel_versions
 
+  parallel_versions["${version}-deb"] = {
+    node("${version}") {
+
+      stage("${version}-deb-preparation") {
+        src = checkout(scm)
+        sh "sudo apt update && sudo apt install --no-install-recommends -y devscripts build-essential equivs"
+      }
+
+      stage("${version}-deb-dependencies") {
+        sh "mk-build-deps && sudo apt install -y ./upbuild.rs-build-deps_*_all.deb && git clean -xffd"
+      }
+
+      stage("${version}-deb-build") {
+        sh "dpkg-buildpackage -us -uc"
+      }
+
+      stage("${version}-deb-install") {
+        sh "sudo apt install -y ../upbuild-rs_*.deb"
+      }
+
+    } //node
+
+  } // parallel_versions
+
 } // versions
 parallel parallel_versions
