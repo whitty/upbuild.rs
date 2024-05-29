@@ -12,10 +12,9 @@ use upbuild_rs::{ClassicFile, Config, Exec, Result};
 fn run() -> Result<()> {
 
     let (args, cfg) = Config::parse(std::env::args());
-    let args: Vec<String> = args.collect(); // TODO - don't require conversion
 
     if cfg.add() {
-        return upbuild_rs::ClassicFile::add(&args, ".upbuild".into());
+        return upbuild_rs::ClassicFile::add(args, ".upbuild".into());
     }
 
     let upbuild_file = upbuild_rs::find(".")?;
@@ -34,6 +33,7 @@ fn run() -> Result<()> {
         }
     );
 
+    let args: Vec<String> = args.collect(); // TODO - don't require conversion
     exec.run(upbuild_file.as_path(), &parsed_file, &cfg, &args)
 }
 
