@@ -126,22 +126,14 @@ impl Exec {
     }
 
     fn with_args(args: std::slice::Iter<'_, String>, provided_args: &[String], argv0: Option<&String>, triple: bool) -> Vec<String> {
-        // map helper for selecting argv[0] from args or argv0
-        let mut replace_first = argv0.is_some();
-        let replace_argv0 = |x| {
-            if replace_first {
-                replace_first = false;
-                argv0.unwrap()
-            } else {
-                x
-            }
-        };
+
+        let skip = if argv0.is_some() { 1 } else { 0 };
 
         if provided_args.is_empty() && !(crate::OLD_STYLE_ARGS_HANDLER && triple) {
 
             let mut first_separator = true;
-            return args
-                .map(replace_argv0)
+            return argv0.into_iter()
+                .chain(args.skip(skip))
                 .filter(|x| {
                     if first_separator && x == &"--" {
                         first_separator = false;
@@ -157,14 +149,16 @@ impl Exec {
 
             // I'm just going to hack this in to get the tests passing then back it out
             let mut has_dash_dash = false;
-            let result = args.take_while(|x| {
-                if x != &"--" {
-                    return true
-                }
-                has_dash_dash = true;
-                false
-            })
-                .map(replace_argv0)
+
+            let result = argv0.into_iter()
+                .chain(args.skip(skip)
+                       .take_while(|x| {
+                           if x != &"--" {
+                               return true
+                           }
+                           has_dash_dash = true;
+                           false
+                       }))
                 .map(String::from)
                 .chain(provided_args.iter().cloned())
                 .collect();
@@ -180,8 +174,10 @@ impl Exec {
                 .collect()
 
         } else {
-            args.take_while(|x| x != &"--")
-                .map(replace_argv0)
+
+            argv0.into_iter()
+                .chain(args.skip(skip))
+                .take_while(|x| x != &"--")
                 .map(String::from)
                 .chain(provided_args.iter().cloned())
                 .collect()
