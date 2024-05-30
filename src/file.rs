@@ -35,7 +35,8 @@ impl Cmd {
         self.args.push(arg.into());
     }
 
-    fn new(exe: String) -> Cmd {
+    fn new<T: Into<String>>(exe: T) -> Cmd {
+        let exe = exe.into();
         let recurse = exe == "upbuild";
         let args = vec![exe];
         Cmd {
@@ -167,14 +168,16 @@ fn split_flag(l: &str) -> Result<(&str, &str)> {
 impl ClassicFile {
 
     /// Create a [ClassicFile] from the given iterator providing linesa
-    pub fn parse_lines<I>(lines: I) -> Result<ClassicFile>
-    where I: Iterator<Item=String>
+    pub fn parse_lines<I, T>(lines: I) -> Result<ClassicFile>
+    where
+        I: Iterator<Item=T>,
+        T: std::borrow::Borrow<str>
     {
         let mut e: Option<Cmd> = None;
         let mut entries: Vec<Cmd> = Vec::new();
 
         for line in lines {
-            let line = parse_line(&line[..])?;
+            let line = parse_line(line.borrow())?;
 
             match line {
 
@@ -317,7 +320,7 @@ mod tests {
     fn parse(s: &str) -> ClassicFile {
         // basic test structure - printing in case of failure
         println!("'{}'", s);
-        let file = ClassicFile::parse_lines(s.lines().map(String::from)).unwrap();
+        let file = ClassicFile::parse_lines(s.lines()).unwrap();
         println!("{:#?}", file);
         file
     }

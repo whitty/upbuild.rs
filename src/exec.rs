@@ -385,7 +385,7 @@ mod tests {
         where
             F: FnOnce(Exec, &ClassicFile) -> Result<()>
         {
-            let file = ClassicFile::parse_lines(file_data.lines().map(String::from)).unwrap();
+            let file = ClassicFile::parse_lines(file_data.lines()).unwrap();
             let runner = Box::new(TestRunner::new(self.test_data.clone()));
 
             let e = Exec::new(runner);
