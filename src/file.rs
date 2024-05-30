@@ -227,16 +227,17 @@ impl ClassicFile {
 
     /// Implement --ub-add, adding the provided_args to the .upbuild file
     /// at the given path - creating if if required.
-    pub fn add<T>(provided_args: T, path: PathBuf) -> Result<()>
+    pub fn add<I, T>(provided_args: I, path: PathBuf) -> Result<()>
     where
-        T: Iterator<Item=String>
+        I: Iterator<Item=T>,
+        T: std::borrow::Borrow<str>
     {
         use std::io::{Seek, Write, SeekFrom};
 
         let args_str = provided_args
-            .reduce(|s, x| s + "\n" + x.as_str());
+            .fold(String::new(), |s, x| s + x.borrow() + "\n");
 
-        if let Some(s) = args_str {
+        if !args_str.is_empty() {
 
             let mut f = std::fs::File::options()
                 .create(true)
@@ -246,9 +247,9 @@ impl ClassicFile {
             let pos = f.seek(SeekFrom::End(0))?;
 
             if pos != 0 {
-                let _ = f.write_all("&&\n".as_bytes());
+                f.write_all("&&\n".as_bytes())?;
             }
-            f.write_all((s + "\n").as_bytes())?;
+            f.write_all(args_str.as_bytes())?;
         }
         Ok(())
     }
