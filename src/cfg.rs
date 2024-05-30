@@ -7,7 +7,6 @@ use std::collections::HashSet;
 #[derive(Debug, PartialEq, Eq)]
 pub struct Config {
     pub(crate) print: bool,
-    pub(crate) triple: bool, // OLD_STYLE_ARGS_HANDLER
     pub(crate) select: HashSet<String>,
     pub(crate) reject: HashSet<String>,
     pub(crate) add: bool,
@@ -31,7 +30,6 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             print: false,
-            triple: false,
             select: Default::default(),
             reject: Default::default(),
             add: false,
@@ -84,13 +82,6 @@ impl Config {
                     },
                     "ub-add" => {
                         cfg.add = true;
-                    },
-                    "-" => { // ---
-                        if super::OLD_STYLE_ARGS_HANDLER {
-                            cfg.triple = true;  args.next(); break;
-                        } else {
-                            break; // Not handled
-                        }
                     },
                     "" => { args.next(); break; },
                     _ => {

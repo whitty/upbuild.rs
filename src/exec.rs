@@ -100,7 +100,7 @@ impl Exec {
                                            Some(argv0)
                                        } else {
                                            None
-                                       }, cfg.triple // OLD_STYLE_ARGS_HANDLER
+                                       }
             );
 
             let cmd_dir = cmd.directory();
@@ -125,11 +125,11 @@ impl Exec {
         Ok(())
     }
 
-    fn with_args(args: std::slice::Iter<'_, String>, provided_args: &[String], argv0: Option<&String>, triple: bool) -> Vec<String> {
+    fn with_args(args: std::slice::Iter<'_, String>, provided_args: &[String], argv0: Option<&String>) -> Vec<String> {
 
         let skip = if argv0.is_some() { 1 } else { 0 };
 
-        if provided_args.is_empty() && !(crate::OLD_STYLE_ARGS_HANDLER && triple) {
+        if provided_args.is_empty() {
 
             let mut first_separator = true;
             return argv0.into_iter()
@@ -145,43 +145,12 @@ impl Exec {
                 .collect();
         }
 
-        if super::OLD_STYLE_ARGS_HANDLER {
-
-            // I'm just going to hack this in to get the tests passing then back it out
-            let mut has_dash_dash = false;
-
-            let result = argv0.into_iter()
-                .chain(args.skip(skip)
-                       .take_while(|x| {
-                           if x != &"--" {
-                               return true
-                           }
-                           has_dash_dash = true;
-                           false
-                       }))
-                .map(String::from)
-                .chain(provided_args.iter().cloned())
-                .collect();
-
-            if has_dash_dash {
-                return result;
-            }
-
-            // replace all but argv0
-            result.iter().take(1)
-                .map(String::from)
-                .chain(provided_args.iter().cloned())
-                .collect()
-
-        } else {
-
-            argv0.into_iter()
-                .chain(args.skip(skip))
-                .take_while(|x| x != &"--")
-                .map(String::from)
-                .chain(provided_args.iter().cloned())
-                .collect()
-        }
+        argv0.into_iter()
+            .chain(args.skip(skip))
+            .take_while(|x| x != &"--")
+            .map(String::from)
+            .chain(provided_args.iter().cloned())
+            .collect()
     }
 
 }
@@ -588,27 +557,6 @@ mod tests {
             .verify_return_data(["make", "-j8", "BUILD_MODE=host_debug", "test"], None)
             .verify_return_data(["echo", "foo"], None)
             .done();
-
-        if crate::OLD_STYLE_ARGS_HANDLER {
-
-            TestRun::new()
-                .add_return_data(Ok(0))
-                .add_return_data(Ok(0))
-                .run(file_data, ["all"], Ok(()))
-                .verify_return_data(["make", "-j8", "BUILD_MODE=host_debug", "all"], None)
-                .verify_return_data(["echo", "all"], None)
-                .done();
-
-            TestRun::new()
-                .add_return_data(Ok(0))
-                .add_return_data(Ok(0))
-                .run(file_data, ["all", "tests"], Ok(()))
-                .verify_return_data(["make", "-j8", "BUILD_MODE=host_debug", "all", "tests"], None)
-                .verify_return_data(["echo", "all", "tests"], None)
-                .done();
-
-            return;
-        }
 
         TestRun::new()
             .add_return_data(Ok(0))
