@@ -14,7 +14,6 @@ for (ver in build_os_vers) {
         stage("${version}-preparation") {
           src = checkout(scm)
           sh "sudo apt update && sudo apt install --no-install-recommends -y bats mingw-w64"
-          sh "rustup target add x86_64-pc-windows-gnu"
         }
 
         stage("${version}-build") {

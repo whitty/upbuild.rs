@@ -1,0 +1,6 @@
+[toolchain]
+# Lock to 1.75 to allow wine usage and match ubuntu
+channel = "1.75"
+components = [ "rust-analyzer" ]
+profile = "default"
+targets = [ "x86_64-unknown-linux-gnu", "x86_64-pc-windows-gnu" ]
