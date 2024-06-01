@@ -167,7 +167,7 @@ fn split_flag(l: &str) -> Result<(&str, &str)> {
 
 impl ClassicFile {
 
-    /// Create a [ClassicFile] from the given iterator providing linesa
+    /// Create a [ClassicFile] from the given iterator providing lines
     pub fn parse_lines<I, T>(lines: I) -> Result<ClassicFile>
     where
         I: Iterator<Item=T>,
