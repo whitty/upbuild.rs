@@ -695,8 +695,13 @@ mod tests {
             .verify_return_data(["make", "cross"], Some("..".into()))
             .verify_cd_dir(&dot_dot_path)
             .done();
+    }
 
+    #[test]
+    #[cfg(target_family = "unix")]
+    fn cd() {
         // Should show when we revert back to original dir (if it wasn't already printed)
+        let dot_dot_path = PathBuf::from("..").canonicalize().unwrap().display().to_string();
         let dot_path = PathBuf::from(".").canonicalize().unwrap().display().to_string();
         let file_data = include_str!("../tests/cd.upbuild");
         TestRun::new()
@@ -751,6 +756,68 @@ mod tests {
             .verify_cd_dir("/some/other/dir")
             .verify_cd_dir(&dot_dot_path)
             .verify_cd_dir("../some/subdir")
+            .done();
+    }
+
+    #[test]
+    #[cfg(not(target_family = "unix"))]
+    fn cd() {
+        // Should show when we revert back to original dir (if it wasn't already printed)
+        let dot_dot_path = PathBuf::from("..").canonicalize().unwrap().display().to_string();
+        let dot_path = PathBuf::from(".").canonicalize().unwrap().display().to_string();
+        let file_data = include_str!("../tests/cd.win.upbuild");
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .run(file_data, [], Ok(()))
+            .verify_return_data(["echo", "1"], None)
+            .verify_return_data(["echo", "2"], Some("\\some\\dir".into()))
+            .verify_return_data(["echo", "3"], Some("\\some\\dir".into()))
+            .verify_return_data(["echo", "4"], None)
+            .verify_return_data(["echo", "5"], Some("\\some\\dir".into()))
+            .verify_return_data(["echo", "6"], Some("\\some\\other\\dir".into()))
+            .verify_return_data(["echo", "7"], None)
+            .verify_return_data(["echo", "8"], some_path("some\\subdir"))
+            .verify_cd_dir("\\some\\dir")
+            .verify_cd_dir(&dot_path)
+            .verify_cd_dir("\\some\\dir")
+            .verify_cd_dir("\\some\\other\\dir")
+            .verify_cd_dir(&dot_path)
+            .verify_cd_dir("some\\subdir")
+            .done();
+
+        // Should show when we revert back to original dir (if it wasalready printed)
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .run_with_path("..\\.upbuild", file_data, [], Ok(()))
+            .verify_return_data(["echo", "1"], Some("..".into()))
+            .verify_return_data(["echo", "2"], Some("\\some\\dir".into()))
+            .verify_return_data(["echo", "3"], Some("\\some\\dir".into()))
+            .verify_return_data(["echo", "4"], Some("..".into()))
+            .verify_return_data(["echo", "5"], Some("\\some\\dir".into()))
+            .verify_return_data(["echo", "6"], Some("\\some\\other\\dir".into()))
+            .verify_return_data(["echo", "7"], Some("..".into()))
+            .verify_return_data(["echo", "8"], some_path("..\\some\\subdir"))
+            .verify_cd_dir(&dot_dot_path)
+            .verify_cd_dir("\\some\\dir")
+            .verify_cd_dir(&dot_dot_path)
+            .verify_cd_dir("\\some\\dir")
+            .verify_cd_dir("\\some\\other\\dir")
+            .verify_cd_dir(&dot_dot_path)
+            .verify_cd_dir("..\\some\\subdir")
             .done();
     }
 
