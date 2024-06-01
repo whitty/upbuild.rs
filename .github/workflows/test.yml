@@ -19,6 +19,11 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+
+      - name: Reset toolchain
+        run: rm -f rust-toolchain.toml
+        shell: bash
+
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{matrix.rust}}
