@@ -125,7 +125,7 @@ impl Exec {
         Ok(())
     }
 
-    fn with_args(args: std::slice::Iter<'_, String>, provided_args: &[String], argv0: Option<&String>) -> Vec<String> {
+    fn with_args(args: &[String], provided_args: &[String], argv0: Option<&String>) -> Vec<String> {
 
         let skip = if argv0.is_some() { 1 } else { 0 };
 
@@ -133,7 +133,7 @@ impl Exec {
 
             let mut first_separator = true;
             return argv0.into_iter()
-                .chain(args.skip(skip))
+                .chain(args.iter().skip(skip))
                 .filter(|x| {
                     if first_separator && x == &"--" {
                         first_separator = false;
@@ -146,7 +146,7 @@ impl Exec {
         }
 
         argv0.into_iter()
-            .chain(args.skip(skip))
+            .chain(args.iter().skip(skip))
             .take_while(|x| x != &"--")
             .map(String::from)
             .chain(provided_args.iter().cloned())

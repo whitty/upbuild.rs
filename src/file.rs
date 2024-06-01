@@ -71,8 +71,8 @@ impl Cmd {
             .unwrap_or(&c)
     }
 
-    pub fn args(&self) -> std::slice::Iter<'_, String> {
-        self.args.iter()
+    pub fn args(&self) -> &[String]  {
+        self.args.as_ref()
     }
 
     pub fn enabled_with_reject(&self, select_tags: &HashSet<String>, reject_tags: &HashSet<String>) -> bool {
