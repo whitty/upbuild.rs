@@ -20,6 +20,7 @@ fn inode(_: &PathBuf) -> fake_inode::Inode {
     fake_inode::Inode{}
 }
 
+#[cfg(any(test, not(target_family = "unix")))]
 mod fake_inode {
     #[derive(Debug, Copy, Clone)]
     pub(super) struct Inode {
