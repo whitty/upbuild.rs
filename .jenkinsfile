@@ -1,4 +1,4 @@
-def build_os_vers = ["22.04", "24.04"]
+def build_os_vers = ["20.04", "22.04", "24.04"]
 
 def parallel_versions = [:]
 
