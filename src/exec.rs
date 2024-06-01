@@ -108,7 +108,7 @@ impl Exec {
 
             if run_dir != last_dir {
                 self.show_entering_always(&run_dir); // after initial cd always show any change
-                last_dir = run_dir.clone(); // TODO clones
+                last_dir.clone_from(&run_dir); // TODO clones
             }
 
             let code = self.runner.run(args, &run_dir)?;
