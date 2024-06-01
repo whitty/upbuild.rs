@@ -1,4 +1,10 @@
-upbuild.rs (0.9.0-1) UNRELEASED; urgency=medium
+upbuild.rs (0.9.1-0) unstable; urgency=medium
+
+  * Bump version for minor fixes
+
+ -- Greg Whiteley <greg.whiteley@gmail.com>  Sat, 01 Jun 2024 22:11:24 +1000
+
+upbuild.rs (0.9.0-1) unstable; urgency=medium
 
   * Initial release
 
