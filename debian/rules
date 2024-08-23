@@ -19,6 +19,7 @@ export DEB_HOST_RUST_TYPE
 _mkchecksum = printf '{"package":"%s","files":{}}\n' \
  $$(sha256sum $(or $2,$(dir $1)Cargo.toml) | grep -Po '^\S+') > $1;
 execute_before_dh_auto_configure:
+	sed -i '/windows.*dependencies/,/^$$/d' Cargo.toml
 	$(call _mkchecksum,debian/cargo-checksum.json,Cargo.toml)
 	$(CARGO) prepare-debian $(CARGO_REGISTRY) --link-from-system
 	rm -f Cargo.lock
