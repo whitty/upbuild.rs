@@ -19,3 +19,7 @@ name = "upbuild"
 path = "src/main.rs"
 
 [dependencies]
+
+[target.'cfg(windows)'.dependencies]
+ctrlc = { version="3.4" }
+windows = { version="0.58", features=["Win32_System_Console"] }

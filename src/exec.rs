@@ -35,6 +35,9 @@ pub trait Runner {
 
     /// Output additional data
     fn display(&self, s: &str);
+
+    /// If applicable setup extended ctrl-c
+    fn setup_extended_ctrl_c(&self);
 }
 
 impl Exec {
@@ -85,6 +88,10 @@ impl Exec {
 
     /// Run the given classic file, args, and config
     pub fn run(&self, path: &Path, file: &ClassicFile, cfg: &Config, provided_args: &[String]) -> Result<()> {
+        if file.includes_ctrl_c() {
+            self.runner.setup_extended_ctrl_c();
+        }
+
         let main_working_dir = Exec::relative_dir(path);
         self.show_entering(&main_working_dir);
 
@@ -162,11 +169,48 @@ fn display_output(file: &Path) -> Result<()> {
     Ok(())
 }
 
-#[derive(Default)]
 struct ProcessRunner {
+    #[cfg(windows)]
+    rc: std::sync::Arc<std::sync::Mutex<bool>>,
+}
+
+impl Default for ProcessRunner {
+    #[cfg(windows)]
+    fn default() -> Self {
+        Self {
+            rc: std::sync::Arc::new(std::sync::Mutex::new(false))
+        }
+    }
+
+    #[cfg(not(windows))]
+    fn default() -> Self {
+        Self {}
+    }
 }
 
 impl Runner for ProcessRunner {
+
+    #[cfg(windows)]
+    fn setup_extended_ctrl_c(&self) {
+        println!("Setting up ctrl-c handler");
+        let once = std::sync::Arc::clone(&self.rc);
+        ctrlc::set_handler(move || {
+            let mut o = once.lock().unwrap();
+            if !*o {
+                println!("Sending ctrl-c signal?");
+                unsafe {
+                    windows::Win32::System::Console::GenerateConsoleCtrlEvent(windows::Win32::System::Console::CTRL_C_EVENT, 0).expect("Failed to send CTRL-C");
+                }
+                *o = true;
+            }
+        }).expect("Error setting handler");
+    }
+
+    #[cfg(not(windows))]
+    fn setup_extended_ctrl_c(&self) {
+        println!("@ctrlc not supported")
+    }
+
     fn run(&self, cmd: Vec<String>, cd: &Option<PathBuf>) -> Result<RetCode> {
 
         if let Some((command, args)) = cmd.split_first() {
@@ -244,6 +288,9 @@ struct PrintRunner {
 }
 
 impl Runner for PrintRunner {
+
+    fn setup_extended_ctrl_c(&self) {}
+
     fn run(&self, cmd: Vec<String>, _cd: &Option<PathBuf>) -> Result<RetCode> {
         println!("{}", cmd.join(" "));
         Ok(0)
@@ -301,6 +348,8 @@ mod tests {
     }
 
     impl Runner for TestRunner {
+        fn setup_extended_ctrl_c(&self) {}
+
         fn run(&self, cmd: Vec<String>, cd: &Option<PathBuf>) -> Result<RetCode> {
             let mut data = self.data.borrow_mut();
             println!("run cmd={:#?} cd={:#?} result={:#?}", cmd, cd, data.result.front());
