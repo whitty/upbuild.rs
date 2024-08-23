@@ -10,6 +10,7 @@ use super::exec::RetCode;
 #[derive(Debug, PartialEq)]
 enum Flags {
     Disable,
+    CtrlCHandler,
     Tags(HashSet<String>),
     Manual,
     Outfile(String),
@@ -27,6 +28,7 @@ pub struct Cmd {
     outfile: Option<String>,
     retmap: HashMap<RetCode, RetCode>,
     disabled: bool,
+    extended_ctrl_c: bool,
     manual: bool,
     recurse: bool,
 }
@@ -134,6 +136,7 @@ fn parse_retmap(def: &str) -> Result<HashMap<RetCode, RetCode>> {
 fn parse_line(l: &str) -> Result<Line> {
     match l {
         "@disable" => Ok(Line::Flag(Flags::Disable)),
+        "@ctrlc" => Ok(Line::Flag(Flags::CtrlCHandler)),
         "@manual" => Ok(Line::Flag(Flags::Manual)),
         "&&" => Ok(Line::End),
         _ => {
@@ -203,6 +206,7 @@ impl ClassicFile {
                             // TODO detect duplicates
                             match f {
                                 Flags::Disable => cmd.disabled = true,
+                                Flags::CtrlCHandler => cmd.extended_ctrl_c = true,
                                 Flags::Manual => cmd.manual = true,
                                 Flags::Tags(tags) => cmd.tags = tags,
                                 Flags::Outfile(filename) => cmd.outfile = Some(filename),
@@ -263,6 +267,11 @@ impl ClassicFile {
             f.write_all(args_str.as_bytes())?;
         }
         Ok(())
+    }
+
+    /// returns true if any commands define extended ctrl-c handling
+    pub fn includes_ctrl_c(&self) -> bool {
+        self.commands.iter().any(|x| x.extended_ctrl_c)
     }
 }
 
