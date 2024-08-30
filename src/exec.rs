@@ -765,6 +765,18 @@ mod tests {
             .done();
     }
 
+
+    /// On windows std::process::Command evaluates the
+    /// executable _before_ the `current_dir()` is applied
+    #[test]
+    fn process_runner_win32_dir_test() {
+        let p = ProcessRunner{};
+        let (comm, path) = if cfg!(windows) { (".\\run.bat", "tests/win/") } else { ("./run.sh", "tests/sh/") };
+        let res = p.run(vec![String::from(comm)], &some_path(path));
+        println!("res={:?}", res);
+        assert_eq!(res.expect("expected OK"), 0);
+    }
+
     fn some_path(s: &str) -> Option<PathBuf> {
         Some(PathBuf::from(s))
     }
