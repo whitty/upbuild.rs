@@ -170,6 +170,17 @@ impl Runner for ProcessRunner {
 
         if let Some((command, args)) = cmd.split_first() {
             let mut exec = Command::new(command);
+
+            // On windows std::process::Command evaluates the
+            // executable _before_ the `current_dir()` is applied
+            if cfg!(windows) {
+                let bin = Path::new(command);
+                if bin.is_relative() && cd.is_some() {
+                    let base = cd.as_ref().unwrap();
+                    let cmd_path = base.as_path().join(command);
+                    exec = Command::new(cmd_path);
+                }
+            }
             exec.args(args);
 
             // TODO - was .inspect(), but not available in 1.63
