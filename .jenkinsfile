@@ -9,7 +9,7 @@ for (ver in build_os_vers) {
     node("${version} && rustup") {
       def src = null;
 
-      withEnv(["PATH+RUST=${HOME}/.cargo/bin"]) {
+      withEnv(["PATH+RUST=${HOME}/.cargo/bin", "WINEDEBUG=-all"]) {
 
         stage("${version}-preparation") {
           src = checkout(scm)
