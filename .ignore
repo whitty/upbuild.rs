@@ -1,4 +1,6 @@
 .jenkinsfile
+.upbuild
+.ignore
 
 debian/
 .github/
