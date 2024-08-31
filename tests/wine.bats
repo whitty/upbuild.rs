@@ -85,6 +85,10 @@ teardown() {
 run_win() {
   run "$wine" "$@"
   output=$(echo "$output" | tr -d "\r")
+  # This monstrosity should re-split output into lines[]
+  # it return failure on EOF of output (hence ||true)
+  IFS="
+" read -d '' -a lines <<<"${output}" || true
 }
 
 @test "${target} basic run" {
@@ -205,7 +209,6 @@ dir 3
 }
 
 @test "${target} outfile" {
-  skip "can't handle lines"
   mkdir 2
   cd 2
   cat > .upbuild <<EOF
@@ -216,7 +219,6 @@ foo
 @outfile=log.txt
 EOF
 
-  # Old rb version didn't fail here
   run_win "$upbuild"
   [ "${lines[0]}" = "foo" ]
   echo "${lines[1]}" | grep -q "Unable to read @outfile=log.txt"
@@ -230,24 +232,24 @@ bar" ]
 }
 
 @test "${target} multi --" {
-  skip "can't handle lines"
   mkdir 3
   cd 3
   cat > .upbuild <<EOF
-ls
--la
+cmd
+/c
+dir
 --
 --
 --help
 EOF
 
   run_win "$upbuild"
-  echo "${lines[0]}" | grep -q -e "--help.*No such file or directory"
+  echo "${output}" | grep -q -e "File not found"
   [ "$status" -ne 0 ]
   output=""
 
   run_win "$upbuild" --ub-print
-  [ "$output" = "ls -la -- --help" ]
+  [ "$output" = "cmd /c dir -- --help" ]
   [ "$status" -eq 0 ]
 }
 
