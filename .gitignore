@@ -2,3 +2,5 @@
 
 # from the deb machinery
 .cargo-checksum.json
+
+.wine/
