@@ -786,6 +786,31 @@ mod tests {
         let res = p.run(vec![String::from(comm)], &some_path(path));
         println!("res={:?}", res);
         assert_eq!(res.expect("expected OK"), 0);
+
+        // Try alternate formats to see how the runner works
+        if cfg!(windows) {
+            let (comm, path) = ("./run.bat", "tests/win/");
+            let res = p.run(vec![String::from(comm)], &some_path(path));
+            println!("res={:?}", res);
+            assert_eq!(res.expect("expected OK"), 0);
+
+            let (comm, path) = ("./run.bat", "tests\\win\\");
+            let res = p.run(vec![String::from(comm)], &some_path(path));
+            println!("res={:?}", res);
+            assert_eq!(res.expect("expected OK"), 0);
+
+            // in DOS you don't need ./
+            let (comm, path) = ("run.bat", "tests\\win\\");
+            let res = p.run(vec![String::from(comm)], &some_path(path));
+            println!("res={:?}", res);
+            assert_eq!(res.expect("expected OK"), 0);
+
+            // Ensure it fails if not in
+            let (comm, path) = ("run.bat", "tests\\");
+            let res = p.run(vec![String::from(comm)], &some_path(path));
+            println!("res={:?}", res);
+            assert_ne!(res.expect("expected OK(!0)"), 0);
+        }
     }
 
     fn some_path(s: &str) -> Option<PathBuf> {
