@@ -16,6 +16,11 @@ setup() {
   if [ -n "$UPBUILD_OVERRIDE" ]; then
     upbuild="$UPBUILD_OVERRIDE"
   else
+    # grrr - old bats doesn't support setup_file?
+    if [ ! -f "target/${target}/debug/upbuild.exe" ]; then
+      setup_file
+    fi
+
     # ensure executable exists
     upbuild=$(readlink -f target/debug/upbuild)
     #rb_ref=1 # set this and upbuild above to wire in old rb version

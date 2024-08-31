@@ -20,6 +20,11 @@ setup_file() {
 }
 
 setup() {
+  # grrr - old bats doesn't support setup_file?
+  if [ ! -f "target/${target}/debug/upbuild.exe" ]; then
+    setup_file
+  fi
+
   # ensure executable exists
   upbuild=$(readlink -f "target/${target}/debug/upbuild.exe")
 
