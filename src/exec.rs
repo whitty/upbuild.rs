@@ -439,6 +439,10 @@ mod tests {
         }
     }
 
+    fn args_vec<const N: usize>(provided_args: [&str; N]) -> Vec<String> {
+        provided_args.into_iter().map(String::from).collect()
+    }
+
     #[test]
     fn test_exec_uv4() {
 
@@ -783,34 +787,47 @@ mod tests {
     fn process_runner_win32_dir_test() {
         let p = ProcessRunner{};
         let (comm, path) = if cfg!(windows) { (".\\run.bat", "tests/win/") } else { ("./run.sh", "tests/sh/") };
-        let res = p.run(vec![String::from(comm)], &some_path(path));
+        let res = p.run(args_vec([comm]), &some_path(path));
         println!("res={:?}", res);
         assert_eq!(res.expect("expected OK"), 0);
 
         // Try alternate formats to see how the runner works
         if cfg!(windows) {
             let (comm, path) = ("./run.bat", "tests/win/");
-            let res = p.run(vec![String::from(comm)], &some_path(path));
+            let res = p.run(args_vec([comm]), &some_path(path));
             println!("res={:?}", res);
             assert_eq!(res.expect("expected OK"), 0);
 
             let (comm, path) = ("./run.bat", "tests\\win\\");
-            let res = p.run(vec![String::from(comm)], &some_path(path));
+            let res = p.run(args_vec([comm]), &some_path(path));
             println!("res={:?}", res);
             assert_eq!(res.expect("expected OK"), 0);
 
             // in DOS you don't need ./
             let (comm, path) = ("run.bat", "tests\\win\\");
-            let res = p.run(vec![String::from(comm)], &some_path(path));
+            let res = p.run(args_vec([comm]), &some_path(path));
             println!("res={:?}", res);
             assert_eq!(res.expect("expected OK"), 0);
 
             // Ensure it fails if not in
             let (comm, path) = ("run.bat", "tests\\");
-            let res = p.run(vec![String::from(comm)], &some_path(path));
+            let res = p.run(args_vec([comm]), &some_path(path));
             println!("res={:?}", res);
             assert_ne!(res.expect("expected OK(!0)"), 0);
         }
+    }
+
+    #[test]
+    fn process_runner_arg_test() {
+        let p = ProcessRunner{};
+        let (comm, path) = if cfg!(windows) { (".\\run.bat", "tests/win/") } else { ("./run.sh", "tests/sh/") };
+        let res = p.run(args_vec([comm, "1"]), &some_path(path));
+        println!("res={:?}", res);
+        assert_eq!(res.expect("expected OK(1)"), 1);
+
+        let res = p.run(args_vec([comm, "100"]), &some_path(path));
+        println!("res={:?}", res);
+        assert_eq!(res.expect("expected OK(100)"), 100);
     }
 
     fn some_path(s: &str) -> Option<PathBuf> {
