@@ -181,8 +181,12 @@ cmd /c echo 2 3" ]
   fi
 }
 
+convert_dir() {
+  echo "$(winepath -w "$1")"
+}
+
 display_dir() {
-  echo "\`\\\\?\\$(winepath -w "$1")'"
+  echo "\`\\\\?\\$(convert_dir "$1")'"
 }
 
 @test "${target} recurse run" {
@@ -280,7 +284,6 @@ cat .upbuild
 }
 
 @test "${target} find not local" {
-  skip "windows @cd bug??"
   mkdir -p 1/2/3/4
   cd 1/2/3/4
 
@@ -292,7 +295,6 @@ dir 1
 }
 
 @test "${target} find not local - actual directory" {
-  skip "windows @cd bug??"
   mkdir -p 1/2/3/4
 
   cat > 1/2/.upbuild <<EOF
@@ -306,11 +308,10 @@ EOF
   run_win "$upbuild"
   [ "$status" -eq 0 ]
   [ "$output" = "upbuild: Entering directory $(display_dir ${test_dir}/1/2)
-$test_dir/1/2" ]
+$(convert_dir ${test_dir}/1/2)" ]
 }
 
 @test "${target} cd in and out" {
-  skip "windows @cd bug??"
   mkdir -p 1/2/3
 
   cat > 1/2/.upbuild <<EOF
@@ -332,23 +333,14 @@ EOF
 
   run_win "$upbuild"
   [ "$status" -eq 0 ]
-  if [ -z "$rb_ref" ]; then
-    [ "$output" = "$test_dir/1/2
+  [ "$output" = "$(convert_dir ${test_dir}/1/2)
 upbuild: Entering directory $(display_dir ${test_dir}/1/2/3)
-$test_dir/1/2/3
+$(convert_dir ${test_dir}/1/2/3)
 upbuild: Entering directory $(display_dir ${test_dir}/1/2)
-$test_dir/1/2" ]
-  else
-    # Old rb version didn't report return back to original dir
-    [ "$output" = "$test_dir/1/2
-upbuild: Entering directory $(display_dir ${test_dir}/1/2/3)
-$test_dir/1/2/3
-$test_dir/1/2" ]
-  fi
+$(convert_dir ${test_dir}/1/2)" ]
 }
 
 @test "${target} cd in and out - relative" {
-  skip "windows @cd bug??"
   mkdir -p 1/2/3
 
   cat > 1/.upbuild <<EOF
@@ -367,20 +359,11 @@ EOF
 
   run_win "$upbuild"
   [ "$status" -eq 0 ]
-  if [ -z "$rb_ref" ]; then
-    [ "$output" = "upbuild: Entering directory $(display_dir ${test_dir}/1)
+  [ "$output" = "upbuild: Entering directory $(display_dir ${test_dir}/1)
 upbuild: Entering directory $(display_dir ${test_dir}/1/2)
-$test_dir/1/2
+$(convert_dir ${test_dir}/1/2)
 upbuild: Entering directory $(display_dir ${test_dir}/1/2/3)
-$test_dir/1/2/3" ]
-  else
-    # Old rb version didn't report return back to original dir
-    [ "$output" = "upbuild: Entering directory $(display_dir ${test_dir}/1)
-upbuild: Entering directory $(display_dir ${test_dir}/1/2)
-$test_dir/1/2
-upbuild: Entering directory $(display_dir ${test_dir}/1/2/3)
-$test_dir/1/2/3" ]
-  fi
+$(convert_dir ${test_dir}/1/2/3)" ]
 }
 
 @test "${target} --ub-add" {

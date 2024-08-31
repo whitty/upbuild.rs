@@ -178,7 +178,20 @@ impl Runner for ProcessRunner {
                 if bin.is_relative() && cd.is_some() {
                     let base = cd.as_ref().unwrap();
                     let cmd_path = base.as_path().join(command);
-                    exec = Command::new(cmd_path);
+
+                    // bin.is_relative() finds non-path prefixed
+                    // commands ie "hello" is non-path prefixed.  So
+                    // drop case where file-name is the entire file.
+                    // EXCEPT - that means dropping the case where we
+                    // @cd to a directory, then run locally.
+                    //
+                    // So replicate DOS behaviour manually and resolve
+                    // to the exe if it exists in the @cd dir.
+
+                    if Some(bin.as_os_str()) != bin.file_name() ||
+                        cmd_path.exists() {
+                        exec = Command::new(cmd_path);
+                    }
                 }
             }
             exec.args(args);
@@ -780,6 +793,10 @@ mod tests {
             .done();
     }
 
+    /// result_is_fail if result is error, or code is non-zero
+    fn result_is_fail(res: &Result<isize>) -> bool {
+        return res.is_err() || *res.as_ref().unwrap() != 0;
+    }
 
     /// On windows std::process::Command evaluates the
     /// executable _before_ the `current_dir()` is applied
@@ -813,7 +830,7 @@ mod tests {
             let (comm, path) = ("run.bat", "tests\\");
             let res = p.run(args_vec([comm]), &some_path(path));
             println!("res={:?}", res);
-            assert_ne!(res.expect("expected OK(!0)"), 0);
+            assert!(result_is_fail(&res), "Expected fail got {:?}", res);
         }
     }
 
