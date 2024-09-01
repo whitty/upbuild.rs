@@ -11,7 +11,7 @@ pub type RetCode = isize;
 
 /// Create a normal runner for [`Exec`] that actually runs the commands
 pub fn process_runner() -> Box<dyn Runner> {
-   Box::new(ProcessRunner {})
+   Box::<ProcessRunner>::default()
 }
 
 /// Create a runner for [`Exec`] that just prints the commands
@@ -162,6 +162,7 @@ fn display_output(file: &Path) -> Result<()> {
     Ok(())
 }
 
+#[derive(Default)]
 struct ProcessRunner {
 }
 
@@ -802,7 +803,7 @@ mod tests {
     /// executable _before_ the `current_dir()` is applied
     #[test]
     fn process_runner_win32_dir_test() {
-        let p = ProcessRunner{};
+        let p = ProcessRunner::default();
         let (comm, path) = if cfg!(windows) { (".\\run.bat", "tests/win/") } else { ("./run.sh", "tests/sh/") };
         let res = p.run(args_vec([comm]), &some_path(path));
         println!("res={:?}", res);
@@ -836,7 +837,7 @@ mod tests {
 
     #[test]
     fn process_runner_arg_test() {
-        let p = ProcessRunner{};
+        let p = ProcessRunner::default();
         let (comm, path) = if cfg!(windows) { (".\\run.bat", "tests/win/") } else { ("./run.sh", "tests/sh/") };
         let res = p.run(args_vec([comm, "1"]), &some_path(path));
         println!("res={:?}", res);
