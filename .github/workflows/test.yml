@@ -39,8 +39,16 @@ jobs:
         run: cargo clippy
 
       - name: Install test deps
-        run: sudo apt install -y bats
+        run: sudo apt install -y --no-install-recommends bats
         if: runner.os == 'Linux'
+
+      - name: Install wine test deps on 1.75 and before
+        run: sudo apt install -y --no-install-recommends mingw-w64 wine64 wine && rustup target add x86_64-pc-windows-gnu
+        if: runner.os == 'Linux' && matrix.rust != 'stable'
+
+      - name: Bypass wine tests after 1.75
+        run: rm -f tests/wine.bats
+        if: runner.os == 'Linux' && matrix.rust == 'stable'
 
       - name: Run CLI test
         run: bats ./tests
