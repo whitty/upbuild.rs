@@ -1,0 +1,13 @@
+cmd
+/c
+@ctrlc
+del
+done.txt
+start.txt
+&&
+./test.bat
+&&
+cmd
+/c
+dir
+*.txt
