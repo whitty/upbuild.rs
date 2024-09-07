@@ -21,5 +21,5 @@ path = "src/main.rs"
 [dependencies]
 
 [target.'cfg(windows)'.dependencies]
-ctrlc = { version="3.4" }
-windows = { version="0.58", features=["Win32_System_Console"] }
+ctrlc = { version="=3.3" }
+windows = { version="0.53", features=["Win32_System_Console"] }
