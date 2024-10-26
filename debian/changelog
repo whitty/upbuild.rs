@@ -1,3 +1,9 @@
+upbuild.rs (0.10.0-0) unstable; urgency=medium
+
+  * Add @mkdir= to support clean cmake operation
+
+ -- Greg Whiteley <greg.whiteley@gmail.com>  Sat, 26 Oct 2024 14:51:28 +1100
+
 upbuild.rs (0.9.3-0) unstable; urgency=medium
 
   * Bugfix for windows with @cd and non-relative non-absolute commands
