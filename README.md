@@ -243,6 +243,30 @@ tree:
     upbuild
     @cd=/path/to/the/rest
 
+### Creating a directory
+
+You can use the `@mkdir` directive to request that a directory be created if it does not exist before running the command.
+
+Currently the `@mkdir` target is evaluated relative to the execution directory _before_ handling `@cd`.
+
+I use this workflow to help with `cmake`:
+
+    cmake
+    ..
+    @cd=build
+    @mkdir=build
+    @tags=fresh
+    @manual
+    --fresh
+    &&
+    cmake
+    @cd=build
+    --build
+    .
+
+To rerun `cmake` itself run `upbuild --ub-select=fresh`
+
+
 ### Quickly adding new commands
 
 Use `--ub-add` to quickly add commands to the .upbuild file
