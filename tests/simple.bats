@@ -388,3 +388,38 @@ $test_dir/1/2/3" ]
 echo
 $test_dir/1/2" ]
 }
+
+@test "@mkdir" {
+
+  ! test -f build
+  ! test -d build
+
+    cat > .upbuild <<EOF
+pwd
+@cd=build
+@mkdir=build
+&&
+pwd
+@cd=build
+EOF
+
+  run "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "upbuild: Entering directory \`$test_dir/build'
+${test_dir}/build
+${test_dir}/build" ]
+
+  # should have created build
+  test -d build
+
+  rmdir build
+
+  # now there's a file in place
+  touch build
+  ! test -d build
+  test -f build
+
+  run "$upbuild"
+  [ "$status" -ne 0 ]
+  echo "${output}" | grep -q "ailed to create directory build"
+}
