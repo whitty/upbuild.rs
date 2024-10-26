@@ -30,6 +30,9 @@ pub trait Runner {
     /// Run a given command in the provided directory
     fn run(&self, cmd: Vec<String>, cd: &Option<PathBuf>) -> Result<RetCode>;
 
+    /// Create given directory if it doesn't exist
+    fn check_mkdir(&self, d: &Path) -> Result<()>;
+
     /// Display output from a file defined by @outfile
     fn display_output(&self, file: &Path) -> Result<()>;
 
@@ -102,6 +105,12 @@ impl Exec {
                                            None
                                        }
             );
+
+            if let Some(d) = cmd.mk_dir() {
+                if let Err(x) = self.runner.check_mkdir(&d) {
+                    eprintln!("Failed to create directory {}: {}", d.display(), x)
+                }
+            }
 
             let cmd_dir = cmd.directory();
             let run_dir = Self::run_dir(&main_working_dir, cmd_dir);
@@ -225,6 +234,13 @@ impl Runner for ProcessRunner {
         println!("{}", s)
     }
 
+    fn check_mkdir(&self, d: &Path) -> Result<()> {
+        if d.is_dir() {
+            return Ok(());
+        }
+        std::fs::create_dir_all(d).map_err(Error::IoFailed)
+    }
+
 }
 
 impl ProcessRunner {
@@ -247,6 +263,11 @@ impl Runner for PrintRunner {
     fn run(&self, cmd: Vec<String>, _cd: &Option<PathBuf>) -> Result<RetCode> {
         println!("{}", cmd.join(" "));
         Ok(0)
+    }
+
+    fn check_mkdir(&self, d: &Path) -> Result<()> {
+        println!("Checking existence of directory {}", d.display());
+        Ok(())
     }
 
     fn display_output(&self, file: &Path) -> Result<()> {
@@ -276,6 +297,7 @@ mod tests {
         outfile: VecDeque<PathBuf>,
         display: VecDeque<String>,
         result: VecDeque<Result<RetCode>>,
+        mkdir: VecDeque<PathBuf>,
     }
 
     impl TestData {
@@ -284,6 +306,7 @@ mod tests {
             self.outfile.clear();
             self.display.clear();
             self.result.clear();
+            self.mkdir.clear();
         }
     }
 
@@ -317,6 +340,12 @@ mod tests {
         fn display(&self, s: &str) {
             let mut data = self.data.borrow_mut();
             data.display.push_back(String::from(s));
+        }
+
+        fn check_mkdir(&self, d: &Path) -> Result<()> {
+            let mut data = self.data.borrow_mut();
+            data.mkdir.push_back(PathBuf::from(d));
+            Ok(())
         }
     }
 
@@ -438,12 +467,20 @@ mod tests {
             self
         }
 
+        fn verify_mkdir(&self, expected: &str) -> &Self {
+            let mut data: RefMut<'_, _> = self.test_data.borrow_mut();
+            let outfile = data.mkdir.pop_front();
+            assert_eq!(PathBuf::from(expected), outfile.expect("expected mkdir"));
+            self
+        }
+
         fn verify_complete(&self) {
             let data: RefMut<'_, _> = self.test_data.borrow_mut();
             assert!(data.run_data.is_empty(), "Didn't exhaust run_data {:#?}", data.run_data);
             assert!(data.outfile.is_empty(), "Didn't exhaust outfile {:#?}", data.outfile);
             assert!(data.display.is_empty(), "Didn't exhaust display {:#?}", data.display);
             assert!(data.result.is_empty());
+            assert!(data.mkdir.is_empty(), "Didn't exhaust mkdir {:#?}", data.mkdir);
         }
 
         fn done(&self) {
@@ -667,6 +704,21 @@ mod tests {
             .verify_return_data(["make", "tests"], Some("..".into()))
             .verify_return_data(["make", "cross"], Some("..".into()))
             .verify_cd_dir(&dot_dot_path)
+            .done();
+    }
+
+    #[test]
+    fn cmake() {
+        let file_data = include_str!("../tests/cmake.upbuild");
+
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(0))
+            .run(file_data, [], Ok(()))
+            .verify_return_data(["cmake", ".."], Some("build".into()))
+            .verify_return_data(["cmake", "--build", "."], Some("build".into()))
+            .verify_cd_dir("build")
+            .verify_mkdir("build")
             .done();
     }
 

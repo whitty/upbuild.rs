@@ -1,0 +1,9 @@
+cmake
+@cd=build
+@mkdir=build
+..
+&&
+cmake
+@cd=build
+--build
+.
