@@ -14,7 +14,8 @@ enum Flags {
     Manual,
     Outfile(String),
     RetMap(HashMap<RetCode, RetCode>),
-    Cd(String)
+    Cd(String),
+    Mkdir(String),
 }
 
 #[derive(Debug, Default)]
@@ -22,6 +23,7 @@ pub struct Cmd {
     args: Vec<String>,
     tags: HashSet<String>,
     cd: Option<String>,
+    mkdir: Option<String>,
     outfile: Option<String>,
     retmap: HashMap<RetCode, RetCode>,
     disabled: bool,
@@ -64,6 +66,10 @@ impl Cmd {
                 None
             },
         }
+    }
+
+    pub fn mk_dir(&self) -> Option<PathBuf> {
+        self.mkdir.as_ref().map(PathBuf::from)
     }
 
     pub fn map_code(&self, c: RetCode) ->RetCode {
@@ -147,6 +153,7 @@ fn parse_line(l: &str) -> Result<Line> {
                     ("retmap", map) => Ok(Line::Flag(Flags::RetMap(parse_retmap(map)?))),
                     ("outfile", outfile) => Ok(Line::Flag(Flags::Outfile(outfile.to_string()))),
                     ("cd", dir) => Ok(Line::Flag(Flags::Cd(dir.to_string()))),
+                    ("mkdir", dir) => Ok(Line::Flag(Flags::Mkdir(dir.to_string()))),
                     ("disable", "") => Ok(Line::Flag(Flags::Disable)),
                     ("manual", "") => Ok(Line::Flag(Flags::Manual)),
                     (&_, _) => Err(Error::InvalidTag(l.to_string()))
@@ -201,6 +208,7 @@ impl ClassicFile {
                                 Flags::Outfile(filename) => cmd.outfile = Some(filename),
                                 Flags::RetMap(map) => cmd.retmap = map,
                                 Flags::Cd(dir) => cmd.cd = Some(dir),
+                                Flags::Mkdir(dir) => cmd.mkdir = Some(dir),
                             }
                         },
                         None => { Err(Error::FlagBeforeCommand(format!("{:?}", f)))? },
@@ -307,6 +315,10 @@ mod tests {
         assert!(parse_retmap("@cd=").is_err());
         assert!(parse_retmap("@cd").is_err());
 
+        assert_eq!(Line::Flag(Flags::Mkdir("/path/to".into())), parse_line("@mkdir=/path/to").expect("should succeed"));
+        assert!(parse_retmap("@mkdir=").is_err());
+        assert!(parse_retmap("@mkdir").is_err());
+
         assert_eq!(Line::Flag(Flags::Outfile("out.txt".into())), parse_line("@outfile=out.txt").expect("should succeed"));
         assert!(parse_retmap("@outfile=").is_err());
         assert!(parse_retmap("@outfile").is_err());
@@ -350,6 +362,7 @@ install
         assert!(!file.commands[0].recurse);
         assert!(file.commands[0].retmap.is_empty());
         assert_eq!(file.commands[0].cd, None);
+        assert_eq!(file.commands[0].mkdir, None);
         assert_eq!(file.commands[0].outfile, None);
         assert_eq!(file.commands[0].args, vec!["make", "tests"]);
 
@@ -359,6 +372,7 @@ install
         assert!(!file.commands[1].recurse);
         assert!(file.commands[1].retmap.is_empty());
         assert_eq!(file.commands[1].cd, None);
+        assert_eq!(file.commands[1].mkdir, None);
         assert_eq!(file.commands[1].outfile, None);
         assert_eq!(file.commands[1].args, vec!["make", "cross"]);
 
@@ -368,6 +382,7 @@ install
         assert!(!file.commands[2].recurse);
         assert!(file.commands[2].retmap.is_empty());
         assert_eq!(file.commands[2].cd, None);
+        assert_eq!(file.commands[2].mkdir, None);
         assert_eq!(file.commands[2].outfile, None);
         assert_eq!(file.commands[2].args, vec!["make", "install"]);
     }
@@ -391,6 +406,7 @@ install
         assert!(!file.commands[0].recurse);
         assert!(file.commands[0].retmap.is_empty());
         assert_eq!(file.commands[0].cd, None);
+        assert_eq!(file.commands[0].mkdir, None);
         assert_eq!(file.commands[0].outfile, None);
         assert_eq!(file.commands[0].args, vec!["make", "tests"]);
 
@@ -400,6 +416,7 @@ install
         assert!(!file.commands[1].recurse);
         assert!(file.commands[1].retmap.is_empty());
         assert_eq!(file.commands[1].cd, None);
+        assert_eq!(file.commands[1].mkdir, None);
         assert_eq!(file.commands[1].outfile, None);
         assert_eq!(file.commands[1].args, vec!["make", "install"]);
     }
@@ -421,6 +438,7 @@ upbuild
         assert!(!file.commands[0].recurse);
         assert!(file.commands[0].retmap.is_empty());
         assert_eq!(file.commands[0].cd, None);
+        assert_eq!(file.commands[0].mkdir, None);
         assert_eq!(file.commands[0].outfile, None);
         assert_eq!(file.commands[0].args, vec!["make", "-j8"]);
         assert_eq!(file.commands[0].directory(), None);
@@ -431,6 +449,7 @@ upbuild
         assert!(file.commands[1].recurse);
         assert!(file.commands[1].retmap.is_empty());
         assert_eq!(file.commands[1].cd, None);
+        assert_eq!(file.commands[1].mkdir, None);
         assert_eq!(file.commands[1].outfile, None);
         assert_eq!(file.commands[1].args, vec!["upbuild"]);
         assert_eq!(file.commands[1].directory().expect("should exist"), std::path::Path::new(".."));
@@ -462,6 +481,7 @@ log.txt
         assert!(!cmd.recurse);
         assert_eq!(cmd.retmap, HashMap::from([(1, 0)]));
         assert_eq!(cmd.cd, None);
+        assert_eq!(cmd.mkdir, None);
         assert_eq!(cmd.outfile, Some(String::from("log.txt")));
         assert_eq!(cmd.args, vec!["uv4", "-j0", "-b", "project.uvproj", "-o", "log.txt"]);
         assert_eq!(cmd.out_file(), Some(PathBuf::from("log.txt")));
@@ -496,6 +516,7 @@ upbuild
         assert!(!file.commands[0].recurse);
         assert!(file.commands[0].retmap.is_empty());
         assert_eq!(file.commands[0].cd, None);
+        assert_eq!(file.commands[0].mkdir, None);
         assert_eq!(file.commands[0].outfile, None);
         assert_eq!(file.commands[0].args, vec!["make", "-j8"]);
         assert_eq!(file.commands[0].directory(), None);
@@ -506,6 +527,7 @@ upbuild
         assert!(file.commands[1].recurse);
         assert!(file.commands[1].retmap.is_empty());
         assert_eq!(file.commands[1].cd, Some(String::from("/path/to/the/rest")));
+        assert_eq!(file.commands[1].mkdir, None);
         assert_eq!(file.commands[1].outfile, None);
         assert_eq!(file.commands[1].args, vec!["upbuild"]);
         assert_eq!(file.commands[1].directory().expect("should exist"), std::path::Path::new("/path/to/the/rest"));
@@ -588,4 +610,45 @@ install
                                  string_set(["host"]),
                                  string_set(["release"]), [true, false, false]);
     }
+
+    #[test]
+    fn test_cd_mkdir() {
+
+        let s = r"cmake
+@cd=build
+@mkdir=build
+..
+--fresh
+&&
+cmake
+@cd=build
+--build
+.
+";
+        let file = parse(s);
+        assert_eq!(2, file.commands.len());
+
+        assert!(file.commands[0].tags.is_empty());
+        assert!(!file.commands[0].disabled);
+        assert!(!file.commands[0].manual);
+        assert!(!file.commands[0].recurse);
+        assert!(file.commands[0].retmap.is_empty());
+        assert_eq!(file.commands[0].cd, Some(String::from("build")));
+        assert_eq!(file.commands[0].mkdir, Some(String::from("build")));
+        assert_eq!(file.commands[0].outfile, None);
+        assert_eq!(file.commands[0].args, vec!["cmake", "..", "--fresh"]);
+        assert_eq!(file.commands[0].directory().expect("should exist"), std::path::Path::new("build"));
+
+        assert!(file.commands[1].tags.is_empty());
+        assert!(!file.commands[1].disabled);
+        assert!(!file.commands[1].manual);
+        assert!(!file.commands[1].recurse);
+        assert!(file.commands[1].retmap.is_empty());
+        assert_eq!(file.commands[1].cd, Some(String::from("build")));
+        assert_eq!(file.commands[1].mkdir, None);
+        assert_eq!(file.commands[1].outfile, None);
+        assert_eq!(file.commands[1].args, vec!["cmake", "--build", "."]);
+        assert_eq!(file.commands[1].directory().expect("should exist"), std::path::Path::new("build"));
+    }
+
 }
