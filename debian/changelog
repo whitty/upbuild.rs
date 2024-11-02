@@ -1,3 +1,9 @@
+upbuild.rs (0.10.1-0) unstable; urgency=medium
+
+  * Fixes for @mkdir with non-local directories
+
+ -- Greg Whiteley <greg.whiteley@gmail.com>  Sat, 02 Nov 2024 22:49:31 +1100
+
 upbuild.rs (0.10.0-0) unstable; urgency=medium
 
   * Add @mkdir= to support clean cmake operation
