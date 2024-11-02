@@ -476,3 +476,42 @@ $(convert_dir ${test_dir}/build)" ]
   [ "$status" -ne 0 ]
   echo "${output}" | grep -q "ailed to create directory .*build"
 }
+
+@test "${target} @mkdir - levels" {
+
+  ! test -f build
+  ! test -d build
+
+    cat > .upbuild <<EOF
+cmd
+@cd=build/2
+@mkdir=build/2
+/c
+cd
+&&
+cmd
+@cd=build/2
+/c
+cd
+EOF
+
+  run_win "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "upbuild: Entering directory $(display_dir ${test_dir}/build/2)
+$(convert_dir ${test_dir}/build/2)
+$(convert_dir ${test_dir}/build/2)" ]
+
+  # should have created build
+  test -d build/2
+
+  rmdir build/2
+
+  # now there's a file in place
+  touch build/2
+  ! test -d build/2
+  test -f build/2
+
+  run_win "$upbuild"
+  [ "$status" -ne 0 ]
+  echo "${output}" | grep -q "ailed to create directory build/2"
+}

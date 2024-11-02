@@ -467,3 +467,39 @@ ${test_dir}/build" ]
   [ "$status" -ne 0 ]
   echo "${output}" | grep -q "ailed to create directory .*build"
 }
+
+@test "@mkdir - levels" {
+
+  ! test -f build
+  ! test -d build
+
+    cat > .upbuild <<EOF
+pwd
+@cd=build/2
+@mkdir=build/2
+&&
+pwd
+@cd=build/2
+EOF
+
+  run "$upbuild"
+echo "op=${output}=op"
+  [ "$status" -eq 0 ]
+  [ "$output" = "upbuild: Entering directory \`$test_dir/build/2'
+${test_dir}/build/2
+${test_dir}/build/2" ]
+
+  # should have created build
+  test -d build/2
+
+  rmdir build/2
+
+  # now there's a file in place
+  touch build/2
+  ! test -d build/2
+  test -f build/2
+
+  run "$upbuild"
+  [ "$status" -ne 0 ]
+  echo "${output}" | grep -q "ailed to create directory build/2"
+}
