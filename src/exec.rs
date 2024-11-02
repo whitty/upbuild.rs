@@ -106,9 +106,12 @@ impl Exec {
                                        }
             );
 
-            if let Some(d) = cmd.mk_dir() {
-                if let Err(x) = self.runner.check_mkdir(&d) {
-                    eprintln!("Failed to create directory {}: {}", d.display(), x)
+            let mk_dir = cmd.mk_dir();
+            if mk_dir.is_some() {
+                if let Some(d) = Self::run_dir(&main_working_dir, mk_dir) {
+                    if let Err(x) = self.runner.check_mkdir(&d) {
+                        eprintln!("Failed to create directory {}: {}", d.display(), x)
+                    }
                 }
             }
 

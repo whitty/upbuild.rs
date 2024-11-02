@@ -423,3 +423,47 @@ ${test_dir}/build" ]
   [ "$status" -ne 0 ]
   echo "${output}" | grep -q "ailed to create directory build"
 }
+
+@test "@mkdir non-local" {
+
+  ! test -f build
+  ! test -d build
+
+    cat > .upbuild <<EOF
+pwd
+@cd=build
+@mkdir=build
+&&
+pwd
+@cd=build
+EOF
+
+  d=$(pwd)
+  mkdir -p once/twice
+  cd once/twice
+
+  run "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "upbuild: Entering directory \`$test_dir'
+upbuild: Entering directory \`$test_dir/build'
+${test_dir}/build
+${test_dir}/build" ]
+
+  cd "${d}"
+
+  # should have created build
+  test -d build
+
+  rmdir build
+
+  # now there's a file in place
+  touch build
+  ! test -d build
+  test -f build
+
+  cd once/twice
+
+  run "$upbuild"
+  [ "$status" -ne 0 ]
+  echo "${output}" | grep -q "ailed to create directory .*build"
+}
