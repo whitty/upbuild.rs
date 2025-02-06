@@ -279,7 +279,7 @@ impl Runner for PrintRunner {
     }
 
     fn check_mkdir(&self, d: &Path) -> Result<()> {
-        println!("Checking existence of directory {}", d.display());
+        println!("{} Checking existence of directory {}", COMMENT, d.display());
         Ok(())
     }
 
