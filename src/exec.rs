@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// (C) Copyright 2024 Greg Whiteley
+// (C) Copyright 2024-2025 Greg Whiteley
 
 use super::{Error, Result, Config};
 use super::file::ClassicFile;
@@ -38,6 +38,11 @@ pub trait Runner {
 
     /// Output additional data
     fn display(&self, s: &str);
+
+    /// Note when we are changing directories
+    fn on_enter_dir(&self, dir: &Path) {
+        self.display(format!("upbuild: Entering directory `{}'", dir.display()).as_str());
+    }
 }
 
 impl Exec {
@@ -62,7 +67,7 @@ impl Exec {
         if let Some(ref d) = working_dir {
             let dd = d.canonicalize(); // full path
             let dir = dd.as_ref().unwrap_or(d); // or fallback to d
-            self.runner.display(format!("upbuild: Entering directory `{}'", dir.display()).as_str());
+            self.runner.on_enter_dir(dir);
         }
     }
 
