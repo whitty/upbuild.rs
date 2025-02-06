@@ -1,3 +1,9 @@
+upbuild.rs (0.11.0-0) unstable; urgency=medium
+
+  * Print directory notifications on --ub-print
+
+ -- Greg Whiteley <greg.whiteley@gmail.com>  Thu, 06 Feb 2025 21:47:18 +1100
+
 upbuild.rs (0.10.1-0) unstable; urgency=medium
 
   * Fixes for @mkdir with non-local directories
