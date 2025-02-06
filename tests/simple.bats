@@ -286,6 +286,12 @@ cat .upbuild
   [ "$output" = "upbuild: Entering directory \`$test_dir/1'
 dir 1
 2" ]
+
+  run "$upbuild" --ub-print
+  [ "$status" -eq 0 ]
+  [ "$output" = "# @cd='$test_dir/1'
+echo dir 1
+echo 2" ]
 }
 
 @test "find not local - actual directory" {

@@ -189,6 +189,11 @@ display_dir() {
   echo "\`\\\\?\\$(convert_dir "$1")'"
 }
 
+# 'straight' ticks instead of `make' ticks
+display_straight_dir() {
+  echo "'\\\\?\\$(convert_dir "$1")'"
+}
+
 @test "${target} recurse run" {
   cd 1/1.1
 
@@ -292,6 +297,12 @@ cat .upbuild
   [ "$output" = "upbuild: Entering directory $(display_dir ${test_dir}/1)
 dir 1
 2" ]
+
+  run_win "$upbuild" --ub-print
+  [ "$status" -eq 0 ]
+  [ "$output" = "rem @cd=$(display_straight_dir ${test_dir}/1)
+cmd /c echo dir 1
+cmd /c echo 2" ]
 }
 
 @test "${target} find not local - actual directory" {

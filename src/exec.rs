@@ -267,6 +267,11 @@ impl ProcessRunner {
 struct PrintRunner {
 }
 
+#[cfg(target_family = "unix")]
+const COMMENT: &str = "#";
+#[cfg(not(target_family = "unix"))]
+const COMMENT: &str = "rem";
+
 impl Runner for PrintRunner {
     fn run(&self, cmd: Vec<String>, _cd: &Option<PathBuf>) -> Result<RetCode> {
         println!("{}", cmd.join(" "));
@@ -284,6 +289,10 @@ impl Runner for PrintRunner {
 
     fn display(&self, _s: &str) {
         // PrintRunner doesn't show the commentary
+    }
+
+    fn on_enter_dir(&self, s: &Path) {
+        println!("{} @cd='{}'", COMMENT, s.display())
     }
 }
 
