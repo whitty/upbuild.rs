@@ -300,7 +300,7 @@ dir 1
 
   run_win "$upbuild" --ub-print
   [ "$status" -eq 0 ]
-  [ "$output" = "rem @cd=$(display_straight_dir ${test_dir}/1)
+  [ "$output" = "rem cd $(display_straight_dir ${test_dir}/1)
 cmd /c echo dir 1
 cmd /c echo 2" ]
 }

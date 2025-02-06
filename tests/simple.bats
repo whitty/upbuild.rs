@@ -289,7 +289,7 @@ dir 1
 
   run "$upbuild" --ub-print
   [ "$status" -eq 0 ]
-  [ "$output" = "# @cd='$test_dir/1'
+  [ "$output" = "# cd '$test_dir/1'
 echo dir 1
 echo 2" ]
 }

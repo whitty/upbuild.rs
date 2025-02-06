@@ -292,7 +292,7 @@ impl Runner for PrintRunner {
     }
 
     fn on_enter_dir(&self, s: &Path) {
-        println!("{} @cd='{}'", COMMENT, s.display())
+        println!("{} cd '{}'", COMMENT, s.display())
     }
 }
 
