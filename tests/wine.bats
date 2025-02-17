@@ -20,6 +20,10 @@ setup_file() {
 }
 
 setup() {
+  if [ "$NOWINE" = "true" ] ; then
+    skip "Skip wine tests as NOWINE=$NOWINE"
+  fi
+
   # grrr - old bats doesn't support setup_file?
   if [ ! -f "target/${target}/debug/upbuild.exe" ]; then
     setup_file
@@ -79,7 +83,7 @@ EOF
 
 teardown() {
   popd
-  [ -d "$test_dir" ] && rm -rf "$test_dir"
+  [ ! -d "$test_dir" ] || rm -rf "$test_dir"
 }
 
 run_win() {
