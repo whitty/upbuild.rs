@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// (C) Copyright 2024 Greg Whiteley
+// (C) Copyright 2024-2025 Greg Whiteley
 
 use std::collections::HashSet;
 
@@ -62,7 +62,6 @@ impl Config {
     /// # use upbuild_rs::Config;
     /// let (args, cfg) = Config::parse(std::env::args());
     /// ```
-
     pub fn parse<T>(args: T) -> (std::iter::Peekable<T>, Config)
     where
         T: Iterator<Item=String>
