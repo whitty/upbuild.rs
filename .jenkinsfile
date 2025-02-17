@@ -1,4 +1,5 @@
 def build_os_vers = ["20.04", "22.04", "24.04"]
+def wine_os_vers = ["24.04"]
 
 def parallel_versions = [:]
 
@@ -13,7 +14,12 @@ for (ver in build_os_vers) {
 
         stage("${version}-preparation") {
           src = checkout(scm)
-          sh "sudo apt update && sudo apt install --no-install-recommends -y bats mingw-w64 wine64 wine"
+
+          def deps = "bats";
+          if (version in wine_os_vers) {
+            deps += " mingw-w64 wine64 wine"
+          }
+          sh "sudo apt update && sudo apt install --no-install-recommends -y $deps"
         }
 
         stage("${version}-build") {
@@ -46,16 +52,23 @@ for (ver in build_os_vers) {
 
         stage("${version}-bats") {
           warnError("run") {
-            sh "bats ./tests"
+            def bat_env = ""
+            if (!(version in wine_os_vers)) {
+              bat_env="env NOWINE=true "
+            }
+
+            sh "${bat_env}bats ./tests"
           }
         }
 
-        stage("${version}-build-windows") {
-          sh "cargo build --target x86_64-pc-windows-gnu"
-        }
+        if (version in wine_os_vers) {
+          stage("${version}-build-windows") {
+            sh "cargo build --target x86_64-pc-windows-gnu"
+          }
 
-        stage("${version}-test-windows") {
-          sh "env CARGO_TARGET_X86_64_PC_WINDOWS_GNU_RUNNER=wine cargo test --target x86_64-pc-windows-gnu"
+          stage("${version}-test-windows") {
+            sh "env CARGO_TARGET_X86_64_PC_WINDOWS_GNU_RUNNER=wine cargo test --target x86_64-pc-windows-gnu"
+          }
         }
 
       } // withEnv
