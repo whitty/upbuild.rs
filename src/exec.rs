@@ -45,6 +45,19 @@ pub trait Runner {
     fn on_enter_dir(&self, dir: &Path) {
         self.display(format!("upbuild: Entering directory `{}'", dir.display()).as_str());
     }
+
+    /// Search for given dotenv filename, optionally ignoring missing
+    fn load_global_dotenv_(&self, name: &str, allow_missing: bool) -> Result<()>;
+
+    /// Search for given dotenv filename
+    fn load_global_dotenv(&self, name: &str) -> Result<()> {
+        self.load_global_dotenv_(name, false)
+    }
+
+    /// Search for given dotenv filename
+    fn load_default_dotenv(&self) -> Result<()> {
+        self.load_global_dotenv_(".upbuild.env", true)
+    }
 }
 
 impl Exec {
@@ -96,18 +109,10 @@ impl Exec {
     fn apply_header(&self, header: &Header, cfg: &Config) -> Result<()> {
         if !cfg.skip_env && header.dotenv().is_empty() {
             // By default we look for .upbuild.env, but squash failure to read it
-            let file = ".upbuild.env";
-            dotenvy::from_filename_override(file)
-                .map(|_| ()) // squash the value
-                .or_else(|e|
-                    match e {
-                        dotenvy::Error::Io(_) => Ok(()), // Read failures are OK
-                        _ => Err(from_dotenvy(file.to_string(), e)),
-                    })?;
+            self.runner.load_default_dotenv()?;
         } else {
             for d in header.dotenv() {
-                dotenvy::from_filename_override(d)
-                    .map_err(|e| from_dotenvy(d.to_string(), e))?;
+                self.runner.load_global_dotenv(d)?;
             }
         }
         Ok(())
@@ -274,6 +279,21 @@ impl Runner for ProcessRunner {
         std::fs::create_dir_all(d).map_err(Error::IoFailed)
     }
 
+    fn load_global_dotenv_(&self, name: &str, allow_missing: bool) -> Result<()> {
+        if allow_missing {
+            dotenvy::from_filename_override(name)
+                .map(|_| ()) // squash the value
+                .or_else(|e|
+                         match e {
+                             dotenvy::Error::Io(_) => Ok(()), // Read failures are OK
+                             _ => Err(from_dotenvy(name.to_string(), e)),
+                         })?;
+        } else {
+            dotenvy::from_filename_override(name)
+                .map_err(|e| from_dotenvy(name.to_string(), e))?;
+        }
+        Ok(())
+    }
 }
 
 impl ProcessRunner {
@@ -318,6 +338,16 @@ impl Runner for PrintRunner {
 
     fn on_enter_dir(&self, s: &Path) {
         println!("{} cd '{}'", COMMENT, s.display())
+    }
+
+    fn load_global_dotenv_(&self, name: &str, allow_missing: bool) -> Result<()> {
+        if allow_missing {
+            // REVIEW - for now be quiet on default load
+            // println!("{} would load default env from '{}' if present", COMMENT, name)
+        } else {
+            println!("{} would load env from '{}'", COMMENT, name)
+        }
+        Ok(())
     }
 }
 
@@ -387,6 +417,10 @@ mod tests {
         fn check_mkdir(&self, d: &Path) -> Result<()> {
             let mut data = self.data.borrow_mut();
             data.mkdir.push_back(PathBuf::from(d));
+            Ok(())
+        }
+
+        fn load_global_dotenv_(&self, _name: &str, _allow_missing: bool) -> Result<()> {
             Ok(())
         }
     }
