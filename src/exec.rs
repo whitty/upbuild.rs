@@ -370,6 +370,8 @@ mod tests {
         display: VecDeque<String>,
         result: VecDeque<Result<RetCode>>,
         mkdir: VecDeque<PathBuf>,
+        global_dotenv: VecDeque<String>,
+        default_dotenv: VecDeque<String>,
     }
 
     impl TestData {
@@ -379,6 +381,8 @@ mod tests {
             self.display.clear();
             self.result.clear();
             self.mkdir.clear();
+            self.global_dotenv.clear();
+            self.default_dotenv.clear();
         }
     }
 
@@ -420,7 +424,13 @@ mod tests {
             Ok(())
         }
 
-        fn load_global_dotenv_(&self, _name: &str, _allow_missing: bool) -> Result<()> {
+        fn load_global_dotenv_(&self, name: &str, allow_missing: bool) -> Result<()> {
+            let mut data = self.data.borrow_mut();
+            if allow_missing {
+                data.default_dotenv.push_back(name.to_string());
+            } else {
+                data.global_dotenv.push_back(name.to_string());
+            }
             Ok(())
         }
     }
@@ -557,6 +567,8 @@ mod tests {
             assert!(data.display.is_empty(), "Didn't exhaust display {:#?}", data.display);
             assert!(data.result.is_empty());
             assert!(data.mkdir.is_empty(), "Didn't exhaust mkdir {:#?}", data.mkdir);
+            assert!(data.global_dotenv.is_empty(), "Didn't exhaust global_dotenv {:#?}", data.global_dotenv);
+            assert!(data.default_dotenv.is_empty(), "Didn't exhaust default_dotenv {:#?}", data.default_dotenv);
         }
 
         fn done(&self) {
@@ -564,6 +576,22 @@ mod tests {
             let mut data: RefMut<'_, _> = self.test_data.borrow_mut();
             data.clear();
         }
+
+        fn verify_global_dotenv(&self, expected: &str) -> &Self {
+            let mut data: RefMut<'_, _> = self.test_data.borrow_mut();
+            let s = data.global_dotenv.pop_front().expect("Expected results");
+            assert_eq!(s, expected);
+            self
+        }
+
+        fn verify_default_dotenv(&self, expected: &str) -> &Self {
+            let mut data: RefMut<'_, _> = self.test_data.borrow_mut();
+            println!("default_dotenv - popped {}", data.default_dotenv.is_empty());
+            let s = data.default_dotenv.pop_front().expect("Expected results");
+            assert_eq!(s, expected);
+            self
+        }
+
     }
 
     fn args_vec<const N: usize>(provided_args: [&str; N]) -> Vec<String> {
@@ -580,6 +608,7 @@ mod tests {
             .run_without_args(file_data, Ok(()))
             .verify_return_data(uv4_run, None)
             .verify_outfile("log.txt")
+            .verify_default_dotenv(".upbuild.env")
             .done();
 
         // 1 should map to 0
@@ -588,6 +617,7 @@ mod tests {
             .run_without_args(file_data, Ok(()))
             .verify_return_data(uv4_run, None)
             .verify_outfile("log.txt")
+            .verify_default_dotenv(".upbuild.env")
             .done();
 
         // 2 should fail though
@@ -595,6 +625,7 @@ mod tests {
             .add_return_data(Ok(2))
             .run_without_args(file_data, Err(Error::ExitWithExitCode(2)))
             .verify_return_data(uv4_run, None)
+            .verify_default_dotenv(".upbuild.env")
             .done();
 
         // signals should be propagated
@@ -602,6 +633,7 @@ mod tests {
             .add_return_data(Err(Error::ExitWithSignal(6)))
             .run_without_args(file_data, Err(Error::ExitWithSignal(6)))
             .verify_return_data(uv4_run, None)
+            .verify_default_dotenv(".upbuild.env")
             .done();
     }
 
@@ -614,12 +646,14 @@ mod tests {
             .run_without_args(file_data, Ok(()))
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["make", "cross"], None)
+            .verify_default_dotenv(".upbuild.env")
             .done();
 
         TestRun::new()
             .add_return_data(Ok(1))
             .run_without_args(file_data, Err(Error::ExitWithExitCode(1)))
             .verify_return_data(["make", "tests"], None)
+            .verify_default_dotenv(".upbuild.env")
             .done();
 
         // select hosts tags
@@ -630,6 +664,7 @@ mod tests {
             .run_without_args(file_data, Ok(()))
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["make", "install"], None)
+            .verify_default_dotenv(".upbuild.env")
             .done();
 
         TestRun::new()
@@ -637,6 +672,7 @@ mod tests {
             .add_return_data(Ok(0))
             .run_without_args(file_data, Ok(()))
             .verify_return_data(["make", "install"], None)
+            .verify_default_dotenv(".upbuild.env")
             .done();
 
         TestRun::new()
@@ -644,6 +680,7 @@ mod tests {
             .add_return_data(Ok(0))
             .run_without_args(file_data, Ok(()))
             .verify_return_data(["make", "cross"], None)
+            .verify_default_dotenv(".upbuild.env")
             .done();
 
         TestRun::new()
@@ -655,6 +692,7 @@ mod tests {
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["make", "cross"], None)
             .verify_return_data(["make", "install"], None)
+            .verify_default_dotenv(".upbuild.env")
             .done();
 
         TestRun::new()
@@ -664,6 +702,7 @@ mod tests {
             .run_without_args(file_data, Err(Error::ExitWithExitCode(1)))
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["make", "cross"], None)
+            .verify_default_dotenv(".upbuild.env")
             .done();
 
         TestRun::new()
@@ -672,6 +711,7 @@ mod tests {
             .add_return_data(Ok(0))
             .run_without_args(file_data, Ok(()))
             .verify_return_data(["make", "tests"], None)
+            .verify_default_dotenv(".upbuild.env")
             .done();
 
         TestRun::new()
@@ -679,6 +719,7 @@ mod tests {
             .add_return_data(Ok(0))
             .run_without_args(file_data, Ok(()))
             .verify_return_data(["make", "cross"], None)
+            .verify_default_dotenv(".upbuild.env")
             .done();
 
         TestRun::new()
@@ -686,6 +727,26 @@ mod tests {
             .add_return_data(Ok(0))
             .run_without_args(file_data, Ok(()))
             .verify_return_data(["make", "cross"], None)
+            .verify_default_dotenv(".upbuild.env")
+            .done();
+    }
+
+    #[test]
+    fn test_header_tags() {
+        let file_data = include_str!("../tests/header.upbuild");
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .run_without_args(file_data, Ok(()))
+            .verify_return_data(["make", "tests"], None)
+            .verify_default_dotenv(".upbuild.env")
+            .done();
+
+        let file_data = include_str!("../tests/dotenv.upbuild");
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .run_without_args(file_data, Ok(()))
+            .verify_return_data(["make", "tests"], None)
+            .verify_global_dotenv(".env")
             .done();
     }
 
@@ -698,6 +759,7 @@ mod tests {
             .run(file_data, [], Ok(()))
             .verify_return_data(["make", "-j8", "BUILD_MODE=host_debug", "test"], None)
             .verify_return_data(["echo", "foo"], None)
+            .verify_default_dotenv(".upbuild.env")
             .done();
 
         TestRun::new()
@@ -706,6 +768,7 @@ mod tests {
             .run(file_data, ["all"], Ok(()))
             .verify_return_data(["make", "-j8", "BUILD_MODE=host_debug", "all"], None)
             .verify_return_data(["echo", "foo", "all"], None)
+            .verify_default_dotenv(".upbuild.env")
             .done();
 
         TestRun::new()
@@ -714,6 +777,7 @@ mod tests {
             .run(file_data, ["all", "tests"], Ok(()))
             .verify_return_data(["make", "-j8", "BUILD_MODE=host_debug", "all", "tests"], None)
             .verify_return_data(["echo", "foo", "all", "tests"], None)
+            .verify_default_dotenv(".upbuild.env")
             .done();
     }
 
@@ -728,6 +792,7 @@ mod tests {
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["upbuild"], Some(PathBuf::from("..")))
             .verify_cd_dir(dot_dot_path.display().to_string().as_str())
+            .verify_default_dotenv(".upbuild.env")
             .done();
 
         TestRun::new()
@@ -738,6 +803,7 @@ mod tests {
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["/path/to/upbuild"], Some(PathBuf::from("..")))
             .verify_cd_dir(dot_dot_path.display().to_string().as_str())
+            .verify_default_dotenv(".upbuild.env")
             .done();
 
         let file_data = include_str!("../tests/norecurse.upbuild");
@@ -749,6 +815,7 @@ mod tests {
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["/path/to/upbuild"], Some(PathBuf::from("/path/to/build")))
             .verify_cd_dir("/path/to/build")
+            .verify_default_dotenv(".upbuild.env")
             .done();
     }
 
@@ -762,6 +829,7 @@ mod tests {
             .run_with_path(".upbuild", file_data, [], Ok(()))
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["make", "cross"], None)
+            .verify_default_dotenv(".upbuild.env")
             .done();
 
         TestRun::new()
@@ -770,6 +838,7 @@ mod tests {
             .run_with_path("./upbuild", file_data, [], Ok(()))
             .verify_return_data(["make", "tests"], None)
             .verify_return_data(["make", "cross"], None)
+            .verify_default_dotenv(".upbuild.env")
             .done();
 
         let dot_dot_path = PathBuf::from("..").canonicalize().unwrap().display().to_string();
@@ -780,6 +849,7 @@ mod tests {
             .verify_return_data(["make", "tests"], Some("..".into()))
             .verify_return_data(["make", "cross"], Some("..".into()))
             .verify_cd_dir(&dot_dot_path)
+            .verify_default_dotenv(".upbuild.env")
             .done();
     }
 
@@ -795,6 +865,7 @@ mod tests {
             .verify_return_data(["cmake", "--build", "."], Some("build".into()))
             .verify_cd_dir("build")
             .verify_mkdir("build")
+            .verify_default_dotenv(".upbuild.env")
             .done();
     }
 
@@ -829,6 +900,7 @@ mod tests {
             .verify_cd_dir("/some/other/dir")
             .verify_cd_dir(&dot_path)
             .verify_cd_dir("some/subdir")
+            .verify_default_dotenv(".upbuild.env")
             .done();
 
         // Should show when we revert back to original dir (if it wasalready printed)
@@ -857,6 +929,7 @@ mod tests {
             .verify_cd_dir("/some/other/dir")
             .verify_cd_dir(&dot_dot_path)
             .verify_cd_dir("../some/subdir")
+            .verify_default_dotenv(".upbuild.env")
             .done();
     }
 
@@ -891,6 +964,7 @@ mod tests {
             .verify_cd_dir("\\some\\other\\dir")
             .verify_cd_dir(&dot_path)
             .verify_cd_dir("some\\subdir")
+            .verify_default_dotenv(".upbuild.env")
             .done();
 
         // Should show when we revert back to original dir (if it wasalready printed)
@@ -919,6 +993,7 @@ mod tests {
             .verify_cd_dir("\\some\\other\\dir")
             .verify_cd_dir(&dot_dot_path)
             .verify_cd_dir("..\\some\\subdir")
+            .verify_default_dotenv(".upbuild.env")
             .done();
     }
 
