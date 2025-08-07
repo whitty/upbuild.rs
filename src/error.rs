@@ -19,6 +19,16 @@ pub enum Error {
     ExitWithSignal(RetCode),
     UnableToReadOutfile(String, std::io::Error),
     FailedToHandleDotEnv(String, dotenvy::Error),
+    FailedToHandleDotEnvLineParse(String, String, usize),
+}
+
+pub(crate) fn from_dotenvy(file: String, e: dotenvy::Error) -> Error {
+    // Map the ugly parse error message to something a little less bad
+    match e {
+        dotenvy::Error::LineParse(s, ix) =>
+            Error::FailedToHandleDotEnvLineParse(file.to_string(), s, ix),
+        _ => Error::FailedToHandleDotEnv(file.to_string(), e),
+    }
 }
 
 impl std::fmt::Display for Error {
@@ -52,6 +62,8 @@ impl std::fmt::Display for Error {
                 write!(f, "Unable to read @outfile={}: {}", file, e),
             Error::FailedToHandleDotEnv(file, e) =>
                 write!(f, "Failure handling @env={}: {}", file, e),
+            Error::FailedToHandleDotEnvLineParse(file, line, e) =>
+                write!(f, "Failure handling @env={}: Error parsing line: '{}' at character {}", file, line, e),
         }
     }
 }
@@ -64,7 +76,7 @@ impl std::error::Error for Error {
             Error::InvalidHeaderField(_) |
             Error::NoCommands | Error::ExitWithExitCode(_) |
             Error::ExitWithSignal(_) | Error::InvalidDir(_) | Error::NotFound(_) |
-            Error::UnableToReadOutfile(_, _)
+            Error::UnableToReadOutfile(_, _) | Error::FailedToHandleDotEnvLineParse(_, _, _)
 
                 => None,
 

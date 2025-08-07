@@ -4,6 +4,7 @@
 use super::{Error, Result, Config};
 use super::file::ClassicFile;
 use super::file::Header;
+use super::error::from_dotenvy;
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -101,12 +102,12 @@ impl Exec {
                 .or_else(|e|
                     match e {
                         dotenvy::Error::Io(_) => Ok(()), // Read failures are OK
-                        _ => Err(Error::FailedToHandleDotEnv(file.to_string(), e))
+                        _ => Err(from_dotenvy(file.to_string(), e)),
                     })?;
         } else {
             for d in header.dotenv() {
                 dotenvy::from_filename_override(d)
-                    .map_err(|e| Error::FailedToHandleDotEnv(d.to_string(), e))?;
+                    .map_err(|e| from_dotenvy(d.to_string(), e))?;
             }
         }
         Ok(())
