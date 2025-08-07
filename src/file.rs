@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// (C) Copyright 2024 Greg Whiteley
+// (C) Copyright 2024-2025 Greg Whiteley
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -29,6 +29,16 @@ pub struct Cmd {
     disabled: bool,
     manual: bool,
     recurse: bool,
+}
+
+#[derive(Debug, PartialEq)]
+enum HeaderFlags {
+    Env(String),
+}
+
+#[derive(Debug, Default)]
+pub struct Header {
+    dotenvs: Vec<String>,
 }
 
 impl Cmd {
@@ -109,14 +119,29 @@ impl Cmd {
 #[derive(Debug)]
 pub struct ClassicFile {
     pub(crate) commands: Vec<Cmd>, // TODO - pub(crate) is lazy)
+    pub(crate) _header: Header,
 }
 
 #[derive(Debug, PartialEq)]
 enum Line {
     Flag(Flags),
     Arg(String),
+    HeaderFlag(HeaderFlags),
+    HeaderSeparator,
     Comment,
     End
+}
+
+impl Header {
+    fn append_dotenv<T: Into<String>>(&mut self, arg: T) {
+        self.dotenvs.push(arg.into());
+    }
+
+    fn new() -> Header {
+        Header {
+            ..Default::default()
+        }
+    }
 }
 
 // Parse a single @retmap=entry
@@ -136,6 +161,7 @@ fn parse_line(l: &str) -> Result<Line> {
         "@disable" => Ok(Line::Flag(Flags::Disable)),
         "@manual" => Ok(Line::Flag(Flags::Manual)),
         "&&" => Ok(Line::End),
+        s if s.starts_with("@---") => Ok(Line::HeaderSeparator),
         _ => {
             if l.starts_with('#') {
                 Ok(Line::Comment)
@@ -154,6 +180,7 @@ fn parse_line(l: &str) -> Result<Line> {
                     ("outfile", outfile) => Ok(Line::Flag(Flags::Outfile(outfile.to_string()))),
                     ("cd", dir) => Ok(Line::Flag(Flags::Cd(dir.to_string()))),
                     ("mkdir", dir) => Ok(Line::Flag(Flags::Mkdir(dir.to_string()))),
+                    ("env", f) => Ok(Line::HeaderFlag(HeaderFlags::Env(f.to_string()))),
                     ("disable", "") => Ok(Line::Flag(Flags::Disable)),
                     ("manual", "") => Ok(Line::Flag(Flags::Manual)),
                     (&_, _) => Err(Error::InvalidTag(l.to_string()))
@@ -172,6 +199,12 @@ fn split_flag(l: &str) -> Result<(&str, &str)> {
     Err(Error::InvalidTag(l.to_string()))
 }
 
+enum HeaderDetectState {
+    InHeader,
+    InBody,
+    Unknown // We don't know yet
+}
+
 impl ClassicFile {
 
     /// Create a [ClassicFile] from the given iterator providing lines
@@ -182,11 +215,19 @@ impl ClassicFile {
     {
         let mut e: Option<Cmd> = None;
         let mut entries: Vec<Cmd> = Vec::new();
+        let mut header_state = HeaderDetectState::Unknown;
+        let mut header = Header::new();
 
         for line in lines {
             let line = parse_line(line.borrow())?;
 
             match line {
+                Line::HeaderSeparator => {
+                    match header_state {
+                        HeaderDetectState::InHeader | HeaderDetectState::Unknown => header_state = HeaderDetectState::InBody,
+                        HeaderDetectState::InBody => { Err(Error::InvalidHeaderField(String::from("Header separator not allowed here")))? },
+                    }
+                }
 
                 Line::Arg(f) => {
                     match e {
@@ -223,6 +264,22 @@ impl ClassicFile {
                         None => Err(Error::EmptyEntry)?,
                     }
                 },
+
+                Line::HeaderFlag(header_flags) => {
+                    match header_state {
+                        HeaderDetectState::InHeader => {},
+                        HeaderDetectState::InBody => {
+                            Err(Error::InvalidHeaderField(String::from("Header field not allowed here")))?;
+                        },
+                        HeaderDetectState::Unknown => header_state = HeaderDetectState::InHeader,
+                    }
+
+                    match header_flags {
+                        HeaderFlags::Env(e) => {
+                            header.append_dotenv(e);
+                        }
+                    }
+                },
             }
         }
 
@@ -232,6 +289,7 @@ impl ClassicFile {
         }
 
         Ok(ClassicFile{
+            _header: header,
             commands: entries,
         })
     }
@@ -329,12 +387,20 @@ mod tests {
         assert!(parse_retmap("@tags").is_err());
     }
 
-    fn parse(s: &str) -> ClassicFile {
+    fn parse_(s: &str) -> Result<ClassicFile>  {
         // basic test structure - printing in case of failure
         println!("'{}'", s);
-        let file = ClassicFile::parse_lines(s.lines()).unwrap();
+        let file = ClassicFile::parse_lines(s.lines());
         println!("{:#?}", file);
         file
+    }
+
+    fn parse(s: &str) -> ClassicFile {
+        parse_(s).unwrap()
+    }
+
+    fn expect_error(s: &str) -> Error {
+        parse_(s).unwrap_err()
     }
 
     #[test]
@@ -649,6 +715,71 @@ cmake
         assert_eq!(file.commands[1].outfile, None);
         assert_eq!(file.commands[1].args, vec!["cmake", "--build", "."]);
         assert_eq!(file.commands[1].directory().expect("should exist"), std::path::Path::new("build"));
+    }
+
+    #[test]
+    fn test_header_basic_parse() {
+
+        let s = r"@env=.env
+@---
+make
+tests
+&&
+make
+@disable
+install
+";
+        let file = parse(s);
+        assert_eq!(1, file._header.dotenvs.len());
+        assert_eq!(file._header.dotenvs[0], ".env");
+
+        assert_eq!(2, file.commands.len());
+
+        assert!(file.commands[0].tags.is_empty());
+        assert!(!file.commands[0].disabled);
+        assert!(!file.commands[0].manual);
+        assert!(!file.commands[0].recurse);
+        assert!(file.commands[0].retmap.is_empty());
+        assert_eq!(file.commands[0].cd, None);
+        assert_eq!(file.commands[0].mkdir, None);
+        assert_eq!(file.commands[0].outfile, None);
+        assert_eq!(file.commands[0].args, vec!["make", "tests"]);
+
+        assert!(file.commands[1].tags.is_empty());
+        assert!(file.commands[1].disabled);
+        assert!(!file.commands[1].manual);
+        assert!(!file.commands[1].recurse);
+        assert!(file.commands[1].retmap.is_empty());
+        assert_eq!(file.commands[1].cd, None);
+        assert_eq!(file.commands[1].mkdir, None);
+        assert_eq!(file.commands[1].outfile, None);
+        assert_eq!(file.commands[1].args, vec!["make", "install"]);
+
+        let s = r"@env=.env
+@---
+@---
+make
+tests
+&&
+make
+@disable
+install
+";
+        let e = expect_error(s);
+        assert!(e.to_string().contains("Header separator not allowed"), "e={}", e);
+
+        let s = r"@env=.env
+@---
+@env=.env
+make
+tests
+&&
+make
+@disable
+install
+";
+        let e = expect_error(s);
+        assert!(e.to_string().contains("Header field not allowed"), "e={}", e);
     }
 
 }

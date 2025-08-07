@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// (C) Copyright 2024 Greg Whiteley
+// (C) Copyright 2024-2025 Greg Whiteley
 
 use super::exec::RetCode;
 
@@ -9,6 +9,7 @@ pub enum Error {
     InvalidRetMapDefinition(String),
     EmptyEntry,
     FlagBeforeCommand(String),
+    InvalidHeaderField(String),
     NoCommands,
     FailedToExec(std::io::Error),
     IoFailed(std::io::Error),
@@ -30,6 +31,8 @@ impl std::fmt::Display for Error {
                 write!(f, "Empty entry"),
             Error::FlagBeforeCommand(s) =>
                 write!(f, "Found tag before command {}", s),
+            Error::InvalidHeaderField(s) =>
+                write!(f, "Invalid header format: {}", s),
             Error::NoCommands =>
                 write!(f, "No commands in file"),
             Error::FailedToExec(e) =>
@@ -55,6 +58,7 @@ impl std::error::Error for Error {
         match *self {
             Error::InvalidTag(_) | Error::InvalidRetMapDefinition(_) |
             Error::EmptyEntry | Error::FlagBeforeCommand(_) |
+            Error::InvalidHeaderField(_) |
             Error::NoCommands | Error::ExitWithExitCode(_) |
             Error::ExitWithSignal(_) | Error::InvalidDir(_) | Error::NotFound(_) |
             Error::UnableToReadOutfile(_, _)
