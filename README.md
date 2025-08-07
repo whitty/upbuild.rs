@@ -31,6 +31,10 @@ ls
    Multiple definitions would add multiple - loaded in definition
    order.
 
+   `.upbuild.env` is loaded by default if no `@env` stanza in header -
+   unless `--ub-no-env` is specified, to disable the default handling.
+   `@env` stanzas are still honoured.
+
 2. If defined in the global section its set before all runs and
    applies globally.
 3. If defined in a command section it only applies for that command

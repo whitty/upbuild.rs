@@ -7,6 +7,7 @@ use std::collections::HashSet;
 #[derive(Debug, PartialEq, Eq)]
 pub struct Config {
     pub(crate) print: bool,
+    pub(crate) skip_env: bool,
     pub(crate) select: HashSet<String>,
     pub(crate) reject: HashSet<String>,
     pub(crate) add: bool,
@@ -30,6 +31,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             print: false,
+            skip_env: false,
             select: Default::default(),
             reject: Default::default(),
             add: false,
@@ -78,6 +80,9 @@ impl Config {
                 match s {
                     "ub-print" => {
                         cfg.print = true;
+                    },
+                    "ub-no-env" => {
+                        cfg.skip_env = true;
                     },
                     "ub-add" => {
                         cfg.add = true;

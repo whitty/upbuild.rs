@@ -93,8 +93,8 @@ impl Exec {
         }
     }
 
-    fn apply_header(&self, header: &Header) -> Result<()> {
-        if header.dotenv().is_empty() {
+    fn apply_header(&self, header: &Header, cfg: &Config) -> Result<()> {
+        if !cfg.skip_env && header.dotenv().is_empty() {
             // By default we look for .upbuild.env, but squash failure to read it
             let file = ".upbuild.env";
             dotenvy::from_filename_override(file)
@@ -116,7 +116,7 @@ impl Exec {
     /// Run the given classic file, args, and config
     pub fn run(&self, path: &Path, file: &ClassicFile, cfg: &Config, provided_args: &[String]) -> Result<()> {
 
-        self.apply_header(&file.header)?;
+        self.apply_header(&file.header, cfg)?;
 
         let main_working_dir = Exec::relative_dir(path);
         self.show_entering(&main_working_dir);
