@@ -18,6 +18,7 @@ pub enum Error {
     ExitWithExitCode(RetCode),
     ExitWithSignal(RetCode),
     UnableToReadOutfile(String, std::io::Error),
+    FailedToHandleDotEnv(String, dotenvy::Error),
 }
 
 impl std::fmt::Display for Error {
@@ -49,6 +50,8 @@ impl std::fmt::Display for Error {
                  write!(f, "Process exitted with signal: {}", c),
             Error::UnableToReadOutfile(file, e) =>
                 write!(f, "Unable to read @outfile={}: {}", file, e),
+            Error::FailedToHandleDotEnv(file, e) =>
+                write!(f, "Failure handling @env={}: {}", file, e),
         }
     }
 }
@@ -67,6 +70,7 @@ impl std::error::Error for Error {
 
             Error::FailedToExec(ref e) => Some(e),
             Error::IoFailed(ref e) => Some(e),
+            Error::FailedToHandleDotEnv(_, ref e) => Some(e),
         }
     }
 }

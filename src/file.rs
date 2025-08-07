@@ -119,7 +119,7 @@ impl Cmd {
 #[derive(Debug)]
 pub struct ClassicFile {
     pub(crate) commands: Vec<Cmd>, // TODO - pub(crate) is lazy)
-    pub(crate) _header: Header,
+    pub(crate) header: Header,
 }
 
 #[derive(Debug, PartialEq)]
@@ -141,6 +141,10 @@ impl Header {
         Header {
             ..Default::default()
         }
+    }
+
+    pub fn dotenv(&self) -> &[String]  {
+        self.dotenvs.as_ref()
     }
 }
 
@@ -289,7 +293,7 @@ impl ClassicFile {
         }
 
         Ok(ClassicFile{
-            _header: header,
+            header,
             commands: entries,
         })
     }
@@ -730,8 +734,8 @@ make
 install
 ";
         let file = parse(s);
-        assert_eq!(1, file._header.dotenvs.len());
-        assert_eq!(file._header.dotenvs[0], ".env");
+        assert_eq!(1, file.header.dotenvs.len());
+        assert_eq!(file.header.dotenvs[0], ".env");
 
         assert_eq!(2, file.commands.len());
 

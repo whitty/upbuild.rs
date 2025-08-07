@@ -19,3 +19,4 @@ name = "upbuild"
 path = "src/main.rs"
 
 [dependencies]
+dotenvy = "0.15.7"
