@@ -5,6 +5,46 @@
 remainder of this README comes from version 0.8.0 of the `rb` version
 and should exist as an aspirational product definition.
 
+# Proposed changes
+
+## Add a "global" header section
+
+Add a header section
+
+```
+# This is the header section for global stuff
+@---
+ls
+# this is the normal section
+-la
+```
+
+## Environment variable support
+
+1. Add support for nominating a `.env` like file.  By default this
+   will not be called `.env` to avoid interactions with other systems.
+   Probably `.upbuild.env` would make sense.
+
+   `@env=my.env` could be used to change the name or add additional
+   ones
+
+   Multiple definitions would add multiple - loaded in definition
+   order.
+
+2. If defined in the global section its set before all runs and
+   applies globally.
+3. If defined in a command section it only applies for that command
+   and changes should be reverted at the end
+
+## Wrapper support
+
+Add support for wrapper scripts.  Not 100% sure what this might mean.
+
+Some ideas:
+
+ * Specify a script like vcvars?  - that set up environment variables
+ * Specify a script runner as alternative to shell.
+
 # Upbuild
 
 Simple directory tree build helper
