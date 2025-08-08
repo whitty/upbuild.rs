@@ -42,13 +42,13 @@ jobs:
         run: sudo apt install -y --no-install-recommends bats
         if: runner.os == 'Linux'
 
-      - name: Install wine test deps on 1.75 and before
+      - name: Install wine test deps
         run: sudo apt install -y --no-install-recommends mingw-w64 wine64 wine && rustup target add x86_64-pc-windows-gnu
-        if: runner.os == 'Linux' && matrix.rust != 'stable'
+        if: runner.os == 'Linux' && matrix.os != 'ubuntu-22.04'
 
-      - name: Bypass wine tests after 1.75
+      - name: Bypass wine tests on 22.04
         run: rm -f tests/wine.bats
-        if: runner.os == 'Linux' && matrix.rust == 'stable'
+        if: runner.os == 'Linux' && matrix.os == 'ubuntu-22.04'
 
       - name: Run CLI test
         run: bats ./tests
