@@ -530,3 +530,97 @@ $(convert_dir ${test_dir}/build/2)" ]
   [ "$status" -ne 0 ]
   echo "${output}" | grep -q "ailed to create directory build/2"
 }
+
+@test "${target} @env simple" {
+  cat > .upbuild <<EOF
+@env=.env1
+@---
+cmd
+/c
+echo foo=%foo%
+EOF
+
+  run_win "$upbuild"
+  [ "$status" -ne 0 ]
+  echo "${output}" | grep -q "Failure handling @env=.env1: path not found"
+
+  cat > .env1 <<EOF
+foo=bar
+EOF
+
+  run_win "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "foo=bar" ]
+
+  cat > .env1 <<EOF
+bar=
+EOF
+
+  run_win "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "foo=%foo%" ]
+}
+
+@test "${target} @env multiple" {
+  cat > .upbuild <<EOF
+@env=.env1
+@env=.env2
+@---
+cmd
+/c
+echo foo=%foo% && echo bar=%bar%
+EOF
+  cat .upbuild
+
+  run_win "$upbuild"
+  [ "$status" -ne 0 ]
+  echo "${output}" | grep -q "Failure handling @env=.env1: path not found"
+
+  cat > .env1 <<EOF
+foo=bar
+EOF
+
+  run_win "$upbuild"
+  [ "$status" -ne 0 ]
+  echo "${output}" | grep -q "Failure handling @env=.env2: path not found"
+
+  cat > .env2 <<EOF
+bar=xxx
+EOF
+
+  run_win "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "foo=bar ""
+bar=xxx" ]
+
+  cat > .env1 <<EOF
+foo=zzz
+bar=yyy
+EOF
+
+  run_win "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "foo=zzz ""
+bar=xxx" ]
+}
+
+@test "${target} .upbuild.env" {
+  cat > .upbuild <<EOF
+cmd
+/c
+echo foo=%foo%
+EOF
+  cat .upbuild
+
+  run_win "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "foo=%foo%" ]
+
+  cat > .upbuild.env <<EOF
+foo=upbuild.env
+EOF
+
+  run_win "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "foo=upbuild.env" ]
+}

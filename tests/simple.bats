@@ -489,7 +489,6 @@ pwd
 EOF
 
   run "$upbuild"
-echo "op=${output}=op"
   [ "$status" -eq 0 ]
   [ "$output" = "upbuild: Entering directory \`$test_dir/build/2'
 ${test_dir}/build/2
@@ -508,4 +507,101 @@ ${test_dir}/build/2" ]
   run "$upbuild"
   [ "$status" -ne 0 ]
   echo "${output}" | grep -q "ailed to create directory build/2"
+}
+
+@test "@env simple" {
+  cat > .upbuild <<EOF
+@env=.env1
+@---
+bash
+-c
+echo foo=\$foo; if [ -z "\$foo" ]; then echo 'empty' ; exit 1; fi
+EOF
+  cat .upbuild
+
+  run "$upbuild"
+  [ "$status" -ne 0 ]
+  echo "${output}" | grep -q "Failure handling @env=.env1: path not found"
+
+  cat > .env1 <<EOF
+foo=bar
+EOF
+
+  run "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "foo=bar" ]
+
+  cat > .env1 <<EOF
+bar=
+EOF
+
+  run "$upbuild"
+  [ "$status" -eq 1 ]
+  [ "$output" = "foo=
+empty" ]
+}
+
+@test "@env multiple" {
+  cat > .upbuild <<EOF
+@env=.env1
+@env=.env2
+@---
+bash
+-c
+echo foo=\$foo; echo bar=\$bar
+EOF
+  cat .upbuild
+
+  run "$upbuild"
+  [ "$status" -ne 0 ]
+  echo "${output}" | grep -q "Failure handling @env=.env1: path not found"
+
+  cat > .env1 <<EOF
+foo=bar
+EOF
+
+  run "$upbuild"
+  [ "$status" -ne 0 ]
+  echo "${output}" | grep -q "Failure handling @env=.env2: path not found"
+
+  cat > .env2 <<EOF
+bar=xxx
+EOF
+
+  run "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "foo=bar
+bar=xxx" ]
+
+  cat > .env1 <<EOF
+foo=zzz
+bar=yyy
+EOF
+
+  run "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "foo=zzz
+bar=xxx" ]
+}
+
+@test ".upbuild.env" {
+  cat > .upbuild <<EOF
+bash
+-c
+echo foo=\$foo; if [ -z "\$foo" ]; then echo 'empty' ; exit 1; fi
+EOF
+  cat .upbuild
+
+  run "$upbuild"
+  [ "$status" -eq 1 ]
+  [ "$output" = "foo=
+empty" ]
+
+  cat > .upbuild.env <<EOF
+foo=upbuild.env
+EOF
+
+  run "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "foo=upbuild.env" ]
 }
