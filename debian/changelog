@@ -1,3 +1,9 @@
+upbuild.rs (0.12.0-0) unstable; urgency=medium
+
+  * Add global @env support
+
+ -- Greg Whiteley <greg.whiteley@gmail.com>  Fri, 08 Aug 2025 19:49:39 +1000
+
 upbuild.rs (0.11.0-0) unstable; urgency=medium
 
   * Print directory notifications on --ub-print
