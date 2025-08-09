@@ -628,3 +628,34 @@ EOF
   [ "$status" -eq 0 ]
   [ "$output" = "foo=%foo%" ]
 }
+
+@test "${target} .upbuild.env priority" {
+  cat > .upbuild <<EOF
+@env=.env1
+@---
+cmd
+/c
+echo foo=%foo%
+EOF
+  cat .upbuild
+
+  cat > .env1 <<EOF
+foo=bar
+EOF
+
+  cat > .upbuild.env <<EOF
+foo=upbuild.env
+EOF
+
+  run_win "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "foo=bar" ]
+
+  cat > .env1 <<EOF
+bar=xxx
+EOF
+
+  run_win "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "foo=%foo%" ]
+}

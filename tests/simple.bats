@@ -610,3 +610,35 @@ EOF
   [ "$output" = "foo=
 empty" ]
 }
+
+@test ".upbuild.env priority" {
+  cat > .upbuild <<EOF
+@env=.env1
+@---
+bash
+-c
+echo foo=\$foo; if [ -z "\$foo" ]; then echo 'empty' ; exit 1; fi
+EOF
+  cat .upbuild
+
+  cat > .env1 <<EOF
+foo=bar
+EOF
+
+  cat > .upbuild.env <<EOF
+foo=upbuild.env
+EOF
+
+  run "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "foo=bar" ]
+
+  cat > .env1 <<EOF
+bar=xxx
+EOF
+
+  run "$upbuild"
+  [ "$status" -eq 1 ]
+  [ "$output" = "foo=
+empty" ]
+}
