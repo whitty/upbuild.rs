@@ -623,4 +623,8 @@ EOF
   run_win "$upbuild"
   [ "$status" -eq 0 ]
   [ "$output" = "foo=upbuild.env" ]
+
+  run_win "$upbuild" --ub-no-env
+  [ "$status" -eq 0 ]
+  [ "$output" = "foo=%foo%" ]
 }

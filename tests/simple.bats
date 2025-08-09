@@ -604,4 +604,9 @@ EOF
   run "$upbuild"
   [ "$status" -eq 0 ]
   [ "$output" = "foo=upbuild.env" ]
+
+  run "$upbuild" --ub-no-env
+  [ "$status" -eq 1 ]
+  [ "$output" = "foo=
+empty" ]
 }
