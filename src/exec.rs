@@ -442,9 +442,13 @@ mod tests {
 
     impl TestRun {
         fn new() -> TestRun {
+            Self::with_config(Config::default())
+        }
+
+        fn with_config(cfg: Config) -> TestRun {
             TestRun {
                 test_data: Rc::new(RefCell::new(TestData::default())),
-                cfg: Config::default(),
+                cfg,
             }
         }
 
@@ -734,11 +738,19 @@ mod tests {
     #[test]
     fn test_header_tags() {
         let file_data = include_str!("../tests/header.upbuild");
-        TestRun::new()
+        TestRun::with_config(Config::default())
             .add_return_data(Ok(0))
             .run_without_args(file_data, Ok(()))
             .verify_return_data(["make", "tests"], None)
             .verify_default_dotenv(".upbuild.env")
+            .done();
+
+        let mut cfg = Config::default();
+        cfg.skip_env = true;
+        TestRun::with_config(cfg)
+            .add_return_data(Ok(0))
+            .run_without_args(file_data, Ok(()))
+            .verify_return_data(["make", "tests"], None)
             .done();
 
         let file_data = include_str!("../tests/dotenv.upbuild");
