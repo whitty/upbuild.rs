@@ -29,6 +29,7 @@ pub struct Cmd {
     disabled: bool,
     manual: bool,
     recurse: bool,
+    dotenvs: Vec<String>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -45,6 +46,10 @@ impl Cmd {
 
     fn append_arg<T: Into<String>>(&mut self, arg: T) {
         self.args.push(arg.into());
+    }
+
+    fn append_dotenv<T: Into<String>>(&mut self, arg: T) {
+        self.dotenvs.push(arg.into());
     }
 
     fn new<T: Into<String>>(exe: T) -> Cmd {
@@ -217,7 +222,7 @@ impl ClassicFile {
         I: Iterator<Item=T>,
         T: std::borrow::Borrow<str>
     {
-        let mut e: Option<Cmd> = None;
+        let mut entry: Option<Cmd> = None;
         let mut entries: Vec<Cmd> = Vec::new();
         let mut header_state = HeaderDetectState::Unknown;
         let mut header = Header::new();
@@ -234,16 +239,18 @@ impl ClassicFile {
                 }
 
                 Line::Arg(f) => {
-                    match e {
+                    header_state = HeaderDetectState::InBody;
+                    match entry {
                         Some(ref mut cmd) => cmd.append_arg(f),
                         None => {
-                            e.replace(Cmd::new(f));
+                            entry.replace(Cmd::new(f));
                         },
                     }
                 },
 
                 Line::Flag(f) => {
-                    match e {
+                    header_state = HeaderDetectState::InBody;
+                    match entry {
                         Some(ref mut cmd) => {
                             // TODO detect duplicates
                             match f {
@@ -263,17 +270,31 @@ impl ClassicFile {
                 Line::Comment => (), // Just drop it
 
                 Line::End => {
-                    match e {
-                        Some(_) => entries.push(e.take().expect("isn't none")),
+                    header_state = HeaderDetectState::InBody;
+                    match entry {
+                        Some(_) => entries.push(entry.take().expect("isn't none")),
                         None => Err(Error::EmptyEntry)?,
                     }
                 },
 
                 Line::HeaderFlag(header_flags) => {
                     match header_state {
-                        HeaderDetectState::InHeader => {},
+                        HeaderDetectState::InHeader => (),
                         HeaderDetectState::InBody => {
-                            Err(Error::InvalidHeaderField(String::from("Header field not allowed here")))?;
+
+                            #[allow(irrefutable_let_patterns)]
+                            if let HeaderFlags::Env(e) = &header_flags {
+                                // Special case env is
+                                match entry {
+                                    Some(ref mut cmd) => {
+                                        cmd.append_dotenv(e);
+                                        continue; // avoid further header processing (avoid the borrow checker at least)
+                                    }
+                                    None => { Err(Error::FlagBeforeCommand(format!("@env={}", e)))? },
+                                }
+                            } else {
+                                Err(Error::InvalidHeaderField(String::from("Header field not allowed here")))?;
+                            }
                         },
                         HeaderDetectState::Unknown => header_state = HeaderDetectState::InHeader,
                     }
@@ -287,8 +308,8 @@ impl ClassicFile {
             }
         }
 
-        match e {
-            Some(_) => entries.push(e.take().expect("isn't none")),
+        match entry {
+            Some(_) => entries.push(entry.take().expect("isn't none")),
             None => Err(Error::EmptyEntry)?,
         }
 
@@ -774,16 +795,78 @@ install
 
         let s = r"@env=.env
 @---
-@env=.env
 make
+@env=.env2
 tests
 &&
 make
 @disable
 install
 ";
-        let e = expect_error(s);
-        assert!(e.to_string().contains("Header field not allowed"), "e={}", e);
+        let file = parse(s);
+        assert_eq!(1, file.header.dotenvs.len());
+        assert_eq!(file.header.dotenvs[0], ".env");
+
+        assert_eq!(2, file.commands.len());
+
+        assert!(file.commands[0].tags.is_empty());
+        assert!(!file.commands[0].disabled);
+        assert!(!file.commands[0].manual);
+        assert!(!file.commands[0].recurse);
+        assert!(file.commands[0].retmap.is_empty());
+        assert_eq!(file.commands[0].cd, None);
+        assert_eq!(file.commands[0].mkdir, None);
+        assert_eq!(file.commands[0].outfile, None);
+        assert_eq!(file.commands[0].args, vec!["make", "tests"]);
+        assert_eq!(1, file.commands[0].dotenvs.len());
+        assert_eq!(file.commands[0].dotenvs[0], ".env2");
+
+        assert!(file.commands[1].tags.is_empty());
+        assert!(file.commands[1].disabled);
+        assert!(!file.commands[1].manual);
+        assert!(!file.commands[1].recurse);
+        assert!(file.commands[1].retmap.is_empty());
+        assert_eq!(file.commands[1].cd, None);
+        assert_eq!(file.commands[1].mkdir, None);
+        assert_eq!(file.commands[1].outfile, None);
+        assert_eq!(file.commands[1].args, vec!["make", "install"]);
+        assert_eq!(0, file.commands[1].dotenvs.len());
+
+        let s = r"make
+@env=.env
+tests
+&&
+make
+@disable
+install
+";
+        let file = parse(s);
+        assert_eq!(0, file.header.dotenvs.len());
+
+        assert_eq!(2, file.commands.len());
+
+        assert!(file.commands[0].tags.is_empty());
+        assert!(!file.commands[0].disabled);
+        assert!(!file.commands[0].manual);
+        assert!(!file.commands[0].recurse);
+        assert!(file.commands[0].retmap.is_empty());
+        assert_eq!(file.commands[0].cd, None);
+        assert_eq!(file.commands[0].mkdir, None);
+        assert_eq!(file.commands[0].outfile, None);
+        assert_eq!(file.commands[0].args, vec!["make", "tests"]);
+        assert_eq!(1, file.commands[0].dotenvs.len());
+        assert_eq!(file.commands[0].dotenvs[0], ".env");
+
+        assert!(file.commands[1].tags.is_empty());
+        assert!(file.commands[1].disabled);
+        assert!(!file.commands[1].manual);
+        assert!(!file.commands[1].recurse);
+        assert!(file.commands[1].retmap.is_empty());
+        assert_eq!(file.commands[1].cd, None);
+        assert_eq!(file.commands[1].mkdir, None);
+        assert_eq!(file.commands[1].outfile, None);
+        assert_eq!(file.commands[1].args, vec!["make", "install"]);
+        assert_eq!(0, file.commands[1].dotenvs.len());
     }
 
 }
