@@ -118,6 +118,10 @@ impl Cmd {
         }
         true
     }
+
+    pub fn dotenv(&self) -> &[String]  {
+        self.dotenvs.as_ref()
+    }
 }
 
 /// Read an `.upbuild` file in the "classic" "simple" format

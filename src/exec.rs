@@ -28,9 +28,18 @@ pub struct Exec {
     runner: Box<dyn Runner>,
 }
 
+type Vars = Vec<Result<(String, String)>>;
+
 pub trait Runner {
     /// Run a given command in the provided directory
-    fn run(&self, cmd: Vec<String>, cd: &Option<PathBuf>) -> Result<RetCode>;
+    // Note env: is passed in here, maybe it should all be just internal to run?
+    fn run(&self, cmd: Vec<String>, cd: &Option<PathBuf>, env: Vars) -> Result<RetCode>;
+
+    /// Run a given command in the provided directory with no env variable (for tests)
+    #[cfg(test)]
+    fn run_with_def_env(&self, cmd: Vec<String>, cd: &Option<PathBuf>) -> Result<RetCode> {
+        self.run(cmd, cd, vec![])
+    }
 
     /// Create given directory if it doesn't exist
     fn check_mkdir(&self, d: &Path) -> Result<()>;
@@ -58,6 +67,9 @@ pub trait Runner {
     fn load_default_dotenv(&self) -> Result<()> {
         self.load_global_dotenv_(".upbuild.env", true)
     }
+
+    /// Read given dotenvs into env to pass to Process
+    fn read_local_env(&self, dotenvs: &[String]) -> Result<Vars>;
 }
 
 impl Exec {
@@ -158,7 +170,8 @@ impl Exec {
                 last_dir.clone_from(&run_dir); // TODO clones
             }
 
-            let code = self.runner.run(args, &run_dir)?;
+            let local_env = self.runner.read_local_env(cmd.dotenv())?;
+            let code = self.runner.run(args, &run_dir, local_env)?;
             let c = cmd.map_code(code);
             if c != 0 {
                 return Err(Error::ExitWithExitCode(c));
@@ -214,8 +227,8 @@ struct ProcessRunner {
 }
 
 impl Runner for ProcessRunner {
-    fn run(&self, cmd: Vec<String>, cd: &Option<PathBuf>) -> Result<RetCode> {
 
+    fn run(&self, cmd: Vec<String>, cd: &Option<PathBuf>, env: Vars) -> Result<RetCode> {
         if let Some((command, args)) = cmd.split_first() {
             let mut exec = Command::new(command);
 
@@ -243,8 +256,8 @@ impl Runner for ProcessRunner {
                 }
             }
             exec.args(args);
+            exec.envs(env.into_iter().filter_map(Result::ok));
 
-            // TODO - was .inspect(), but not available in 1.63
             if let Some(ref d) = cd.as_ref() {
                 exec.current_dir(d);
             }
@@ -294,6 +307,17 @@ impl Runner for ProcessRunner {
         }
         Ok(())
     }
+
+    fn read_local_env(&self, dotenvs: &[String]) -> Result<Vars> {
+
+        let mut v = vec![];
+        for name in dotenvs {
+            v.extend(dotenvy::from_filename_iter(name)
+                     .map_err(|e| from_dotenvy(name.to_string(), e))?
+                     .map(|x| x.map_err(|e| from_dotenvy(name.to_string(), e))));
+        }
+        Ok(v)
+    }
 }
 
 impl ProcessRunner {
@@ -318,7 +342,20 @@ const COMMENT: &str = "#";
 const COMMENT: &str = "rem";
 
 impl Runner for PrintRunner {
-    fn run(&self, cmd: Vec<String>, _cd: &Option<PathBuf>) -> Result<RetCode> {
+    fn run(&self, cmd: Vec<String>, _cd: &Option<PathBuf>, env: Vars) -> Result<RetCode> {
+        if ! env.is_empty() {
+            // TODO env? set?
+            println!("{} Apply environment: {}", COMMENT,
+             env.into_iter()
+                .fold(String::new(), |v , x| -> String {
+                    if let Ok((name, val)) = x {
+                        let pref = if v.is_empty() {""} else {","};
+                        format!("{}{}={}", pref, name, val)
+                    } else {
+                        v
+                    }
+                }));
+        }
         println!("{}", cmd.join(" "));
         Ok(0)
     }
@@ -349,6 +386,13 @@ impl Runner for PrintRunner {
         }
         Ok(())
     }
+
+    fn read_local_env(&self, dotenvs: &[String]) -> Result<Vars> {
+        for name in dotenvs {
+            println!("{} would load env from '{}'", COMMENT, name);
+        }
+        Ok(vec![])
+    }
 }
 
 #[cfg(test)]
@@ -361,6 +405,7 @@ mod tests {
     struct RunData {
         cmd: Vec<String>,
         cd: Option<PathBuf>,
+        env: Vec<(String, String)>,
     }
 
     #[derive(Default, Debug)]
@@ -400,10 +445,11 @@ mod tests {
     }
 
     impl Runner for TestRunner {
-        fn run(&self, cmd: Vec<String>, cd: &Option<PathBuf>) -> Result<RetCode> {
+        fn run(&self, cmd: Vec<String>, cd: &Option<PathBuf>, env: Vars) -> Result<RetCode> {
             let mut data = self.data.borrow_mut();
             println!("run cmd={:#?} cd={:#?} result={:#?}", cmd, cd, data.result.front());
-            data.run_data.push_back(RunData{cmd, cd: cd.clone()});
+            let env = env.into_iter().filter_map(Result::ok).collect();
+            data.run_data.push_back(RunData{cmd, cd: cd.clone(), env});
             data.result.pop_front().expect("Result wasn't set")
         }
 
@@ -432,6 +478,11 @@ mod tests {
                 data.global_dotenv.push_back(name.to_string());
             }
             Ok(())
+        }
+
+        fn read_local_env(&self, _dotenvs: &[String]) -> Result<Vars> {
+            //!todo!("Need to wire in test machinery? or simplify this call away");
+            Ok(vec![])
         }
     }
 
@@ -543,10 +594,16 @@ mod tests {
         }
 
         fn verify_return_data<const N: usize>(&self, cmd: [&str; N], cd: Option<PathBuf>) -> &Self {
+            self.verify_return_data_with_env(cmd, cd, []);
+            self
+        }
+
+        fn verify_return_data_with_env<const N: usize, const M: usize>(&self, cmd: [&str; N], cd: Option<PathBuf>, env: [(String,String); M]) -> &Self {
             let mut data: RefMut<'_, _> = self.test_data.borrow_mut();
             let result = data.run_data.pop_front().expect("Expected results");
             assert_eq!(result.cmd, cmd);
             assert_eq!(result.cd, cd);
+            assert_eq!(result.env, env);
             self
         }
 
@@ -1020,31 +1077,31 @@ mod tests {
     fn process_runner_win32_dir_test() {
         let p = ProcessRunner::default();
         let (comm, path) = if cfg!(windows) { (".\\run.bat", "tests/win/") } else { ("./run.sh", "tests/sh/") };
-        let res = p.run(args_vec([comm]), &some_path(path));
+        let res = p.run_with_def_env(args_vec([comm]), &some_path(path));
         println!("res={:?}", res);
         assert_eq!(res.expect("expected OK"), 0);
 
         // Try alternate formats to see how the runner works
         if cfg!(windows) {
             let (comm, path) = ("./run.bat", "tests/win/");
-            let res = p.run(args_vec([comm]), &some_path(path));
+            let res = p.run_with_def_env(args_vec([comm]), &some_path(path));
             println!("res={:?}", res);
             assert_eq!(res.expect("expected OK"), 0);
 
             let (comm, path) = ("./run.bat", "tests\\win\\");
-            let res = p.run(args_vec([comm]), &some_path(path));
+            let res = p.run_with_def_env(args_vec([comm]), &some_path(path));
             println!("res={:?}", res);
             assert_eq!(res.expect("expected OK"), 0);
 
             // in DOS you don't need ./
             let (comm, path) = ("run.bat", "tests\\win\\");
-            let res = p.run(args_vec([comm]), &some_path(path));
+            let res = p.run_with_def_env(args_vec([comm]), &some_path(path));
             println!("res={:?}", res);
             assert_eq!(res.expect("expected OK"), 0);
 
             // Ensure it fails if not in
             let (comm, path) = ("run.bat", "tests\\");
-            let res = p.run(args_vec([comm]), &some_path(path));
+            let res = p.run_with_def_env(args_vec([comm]), &some_path(path));
             println!("res={:?}", res);
             assert!(result_is_fail(&res), "Expected fail got {:?}", res);
         }
@@ -1054,11 +1111,11 @@ mod tests {
     fn process_runner_arg_test() {
         let p = ProcessRunner::default();
         let (comm, path) = if cfg!(windows) { (".\\run.bat", "tests/win/") } else { ("./run.sh", "tests/sh/") };
-        let res = p.run(args_vec([comm, "1"]), &some_path(path));
+        let res = p.run_with_def_env(args_vec([comm, "1"]), &some_path(path));
         println!("res={:?}", res);
         assert_eq!(res.expect("expected OK(1)"), 1);
 
-        let res = p.run(args_vec([comm, "100"]), &some_path(path));
+        let res = p.run_with_def_env(args_vec([comm, "100"]), &some_path(path));
         println!("res={:?}", res);
         assert_eq!(res.expect("expected OK(100)"), 100);
 
@@ -1067,7 +1124,7 @@ mod tests {
             // the actual failure point I've been struggling with is right at
             // rust's implementation of main, so this proves nothing except
             // that sh can't "exit -1"
-            let res = p.run(args_vec([comm, "-1"]), &some_path(path));
+            let res = p.run_with_def_env(args_vec([comm, "-1"]), &some_path(path));
             println!("res={:?}", res);
             assert_eq!(res.expect("expected OK(-1)"), -1);
         }

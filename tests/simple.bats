@@ -509,7 +509,7 @@ ${test_dir}/build/2" ]
   echo "${output}" | grep -q "ailed to create directory build/2"
 }
 
-@test "@env simple" {
+@test "global @env simple" {
   cat > .upbuild <<EOF
 @env=.env1
 @---
@@ -541,7 +541,7 @@ EOF
 empty" ]
 }
 
-@test "@env multiple" {
+@test "global @env multiple" {
   cat > .upbuild <<EOF
 @env=.env1
 @env=.env2
@@ -641,4 +641,92 @@ EOF
   [ "$status" -eq 1 ]
   [ "$output" = "foo=
 empty" ]
+}
+
+@test "specific @env" {
+  cat > .upbuild <<EOF
+@env=.env1
+@---
+bash
+@env=.env2
+-c
+echo foo=\$foo; echo bar=\$bar
+&&
+bash
+@env=.env3
+-c
+echo foo=\$foo; echo bar=\$bar
+EOF
+  cat .upbuild
+
+  run "$upbuild"
+  [ "$status" -ne 0 ]
+  echo "${output}" | grep -q "Failure handling @env=.env1: path not found"
+
+  cat > .env1 <<EOF
+foo=bar
+EOF
+
+  run "$upbuild"
+  [ "$status" -ne 0 ]
+  echo "${output}" | grep -q "Failure handling @env=.env2: path not found"
+
+  cat > .env2 <<EOF
+bar=xxx
+EOF
+
+  run "$upbuild"
+  [ "$status" -ne 0 ]
+  # first bit succeeds, then second fails
+  [ "${lines[0]}" = "foo=bar" ]
+  [ "${lines[1]}" = "bar=xxx" ]
+  echo "${output}" | grep -q "Failure handling @env=.env3: path not found"
+
+  cat > .env3 <<EOF
+foo=woo
+EOF
+
+  run "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "foo=bar
+bar=xxx
+foo=woo
+bar=" ]
+
+  # check interaction from external
+
+  run env "bar=zzz" "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "foo=bar
+bar=xxx
+foo=woo
+bar=zzz" ]
+
+  cat > .env2 <<EOF
+foo=foo
+EOF
+
+  run env "bar=zzz" "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "foo=foo
+bar=zzz
+foo=woo
+bar=zzz" ]
+
+  # Check precedence
+  cat > .env1 <<EOF
+foo=zzz
+bar=yyy
+EOF
+
+  cat > .env3 <<EOF
+foo=woo
+EOF
+
+  run "$upbuild"
+  [ "$status" -eq 0 ]
+  [ "$output" = "foo=foo
+bar=yyy
+foo=woo
+bar=yyy" ]
 }
