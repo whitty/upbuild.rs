@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// (C) Copyright 2024 Greg Whiteley
+// (C) Copyright 2024-2025 Greg Whiteley
 
 #![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
@@ -46,6 +46,11 @@ fn main() -> ExitCode {
                     return ExitCode::from(c);
                 },
                 Err(e) => {
+                    if cfg!(windows) {
+                        if let Ok(c) = i32::try_from(c) {
+                            std::process::exit(c);
+                        }
+                    }
                     eprintln!("Unable to return process return code {}: {}", c, e);
                     return ExitCode::FAILURE;
                 }

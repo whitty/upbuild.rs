@@ -1061,6 +1061,16 @@ mod tests {
         let res = p.run(args_vec([comm, "100"]), &some_path(path));
         println!("res={:?}", res);
         assert_eq!(res.expect("expected OK(100)"), 100);
+
+        if cfg!(windows) {
+            // Theoretically testing -1 as a result code on windows, however
+            // the actual failure point I've been struggling with is right at
+            // rust's implementation of main, so this proves nothing except
+            // that sh can't "exit -1"
+            let res = p.run(args_vec([comm, "-1"]), &some_path(path));
+            println!("res={:?}", res);
+            assert_eq!(res.expect("expected OK(-1)"), -1);
+        }
     }
 
     fn some_path(s: &str) -> Option<PathBuf> {
