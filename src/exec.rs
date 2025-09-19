@@ -790,6 +790,16 @@ mod tests {
             .verify_return_data(["make", "cross"], None)
             .verify_default_dotenv(".upbuild.env")
             .done();
+
+        TestRun::new()
+            .select(["target", "host"])
+            .add_return_data(Ok(0))
+            .add_return_data(Ok(-1))
+            .run_without_args(file_data, Err(Error::ExitWithExitCode(-1)))
+            .verify_return_data(["make", "tests"], None)
+            .verify_return_data(["make", "cross"], None)
+            .verify_default_dotenv(".upbuild.env")
+            .done();
     }
 
     #[test]
