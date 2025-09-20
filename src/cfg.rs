@@ -12,6 +12,7 @@ pub struct Config {
     pub(crate) reject: HashSet<String>,
     pub(crate) add: bool,
     pub(crate) argv0: String,
+    pub(crate) completion: Option<Completion>,
 }
 
 impl Config {
@@ -25,6 +26,11 @@ impl Config {
     pub fn add(&self) -> bool {
         self.add
     }
+
+    /// Returns optional object describing completion requests requested
+    pub fn completion(&self) -> &Option<Completion> {
+        &self.completion
+    }
 }
 
 impl Default for Config {
@@ -36,6 +42,7 @@ impl Default for Config {
             reject: Default::default(),
             add: false,
             argv0: String::from("upbuild"),
+            completion: None,
         }
     }
 }
@@ -53,6 +60,68 @@ fn apply_tags(arg: &str, add: &mut HashSet<String> , drop: &mut HashSet<String>)
     }
     false
 }
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Completion {
+    PrintCompletion,
+    PrintTags,
+}
+
+impl Completion {
+    fn render(&self) -> String {
+        match *self {
+            Completion::PrintTags => todo!("PrintTags doesn't get handled by render"),
+            Completion::PrintCompletion => generate_bash_completion(),
+        }
+    }
+
+    pub fn print(&self) {
+        println!("{}", self.render())
+    }
+}
+
+const FLAGS: [&str;3] = [
+    "--ub-print",
+    "--ub-add",
+    "--ub-no-env"
+];
+
+const ARGS: [&str;2] = [
+    "--ub-select=",
+    "--ub-reject=",
+];
+
+const PLACEHOLDER: &str = "# GENERATE THESE ARGUMENTS";
+
+fn generate_bash_completion_(template: &str) -> String {
+    let mut next = None;
+    template
+        .lines()
+        .map(|line| {
+            if let Some(pos) = line.find(PLACEHOLDER) {
+                let indent = &line[0..pos];
+                // next line
+                next = Some(format!("{}OPTS=({} {})", indent, FLAGS.join(" "), ARGS.join(" ")));
+                format!("{}# Generated arguments:", indent)
+            } else if next.is_some() {
+                next.take().unwrap()
+            } else {
+                line.to_string()
+            }
+        })
+        .fold(String::with_capacity(template.len()), | mut a, b | {
+            if !a.is_empty() {
+                a.push('\n');
+            }
+            a.push_str(b.as_str());
+            a
+        })
+}
+
+fn generate_bash_completion() -> String {
+    generate_bash_completion_(include_str!("../etc/bash_completion.sh"))
+}
+
 
 /// Handles the `--ub-*` prefix command-line arguments and returns the
 /// remaining command-line arguments to the caller.
@@ -86,6 +155,9 @@ impl Config {
                     },
                     "ub-add" => {
                         cfg.add = true;
+                    },
+                    "ub-completion-list-tags" => {
+                        cfg.completion = Some(Completion::PrintTags);
                     },
                     "" => { args.next(); break; },
                     _ => {
@@ -223,5 +295,13 @@ mod tests {
         let (v, args) = do_parse(["--ub-select="]);
         assert_eq!(v, ["--ub-select="]);
         assert_eq!(args, Config { ..Config::default() });
+    }
+
+    #[test]
+    fn test_bash_completion_render() {
+        let comp = generate_bash_completion();
+        println!("{}", generate_bash_completion());
+        assert!(!comp.contains(PLACEHOLDER));
+        assert!(comp.contains("OPTS=(--ub-print --ub-add --ub-no-env --ub-select= --ub-reject=)\n"));
     }
 }
