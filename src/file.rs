@@ -351,6 +351,19 @@ impl ClassicFile {
         }
         Ok(())
     }
+
+    fn get_all_tags(&self) -> HashSet<String> {
+        self.commands.iter().fold(HashSet::new(), |a, cmd| {
+            a.union(&cmd.tags).cloned().collect()
+        })
+    }
+
+    /// Print the tags used in all of the commands
+    pub fn print_tags(&self) {
+        for tag in self.get_all_tags() {
+            println!("{}", tag);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -704,6 +717,9 @@ install
         check_select_reject_tags(&file,
                                  string_set(["host"]),
                                  string_set(["release"]), [true, false, false]);
+
+        let all = file.get_all_tags();
+        assert_eq!(all, string_set(["host", "release", "target",]));
     }
 
     #[test]

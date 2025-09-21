@@ -13,6 +13,12 @@ fn run() -> Result<()> {
 
     let (args, cfg) = Config::parse(std::env::args());
 
+    if let Some(c) = cfg.completion() {
+        if c.print() {
+            return Ok(());
+        }
+    }
+
     if cfg.add() {
         return upbuild_rs::ClassicFile::add(args, ".upbuild".into());
     }
@@ -24,6 +30,11 @@ fn run() -> Result<()> {
             .map(std::io::BufReader::new)?
             .lines()
             .map_while(std::result::Result::ok))?;
+
+    if cfg.completion().is_some() {
+        parsed_file.print_tags();
+        return Ok(());
+    }
 
     let exec = Exec::new(
         if cfg.print() {

@@ -75,8 +75,12 @@ impl Completion {
         }
     }
 
-    pub fn print(&self) {
-        println!("{}", self.render())
+    pub fn print(&self) -> bool {
+        if *self == Completion::PrintTags {
+            return false;
+        }
+        println!("{}", self.render());
+        true
     }
 }
 
@@ -158,6 +162,9 @@ impl Config {
                     },
                     "ub-completion-list-tags" => {
                         cfg.completion = Some(Completion::PrintTags);
+                    },
+                    "ub-completion" => {
+                        cfg.completion = Some(Completion::PrintCompletion);
                     },
                     "" => { args.next(); break; },
                     _ => {
@@ -298,8 +305,23 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_completion() {
+        let (_rest, args) = do_parse(["--ub-completion"]);
+        assert_eq!(args, Config {
+            completion: Some(Completion::PrintCompletion),
+            ..Config::default()
+        });
+
+        let (_rest, args) = do_parse(["--ub-completion-list-tags"]);
+        assert_eq!(args, Config {
+            completion: Some(Completion::PrintTags),
+            ..Config::default()
+        });
+    }
+
+    #[test]
     fn test_bash_completion_render() {
-        let comp = generate_bash_completion();
+        let comp = Completion::PrintCompletion.render();
         println!("{}", generate_bash_completion());
         assert!(!comp.contains(PLACEHOLDER));
         assert!(comp.contains("OPTS=(--ub-print --ub-add --ub-no-env --ub-select= --ub-reject=)\n"));
