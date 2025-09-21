@@ -10,8 +10,8 @@ _upbuild()
 
   case $prev in
     '--ub-select'|'--ub-reject')
-      # TODO generate this
-      OPTS=(fresh arm)
+      # call upbuild to query tags
+      readarray -t OPTS < <(upbuild --ub-completion-list-tags 2>&1 ; true)
       COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
       return 0
       ;;
@@ -19,7 +19,7 @@ _upbuild()
 
   case $cur in
     -*)
-      # TODO generate this
+      # GENERATE THESE ARGUMENTS
       OPTS=(--ub-print --ub-add --ub-no-env --ub-select= --ub-reject=)
       # suppress the space
       compopt -o nospace
@@ -29,9 +29,10 @@ _upbuild()
       return 0
       ;;
   esac
+
   compopt -o bashdefault -o default
   # completing with "" should go to bashdefault (normal completion)
-  # could try to get fancy I guess?
+  # could try to get fancy by looking for programs with -- for args?
   COMPREPLY=( $(compgen -W "" -- $cur) )
   return 0
 }
