@@ -331,3 +331,14 @@ file - ie:
     $ cat .upbuild
     ls
     /home/user
+
+## Shell completion
+
+Currently only supports `bash_completion`:
+
+Add this to your `.bashrc` - or run it to refresh completion if new
+args are added:
+
+```
+source <(upbuild --ub-completion)
+```
