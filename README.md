@@ -342,3 +342,25 @@ args are added:
 ```
 source <(upbuild --ub-completion)
 ```
+
+## emacs mode
+
+A simple `emacs` mode is possible using `generic-x` for simple mode generation:
+
+```
+;; Define a simple upbuild-mode
+(use-package generic-x
+  :config
+  (define-generic-mode 'upbuild-mode
+    '("#")
+    '("@disable" "@retmap=.*" "@cd=.*" "@tags=.*" "@manual")
+    '(("^&&$" . 'font-lock-keyword-face)
+       ("^--$" . 'font-lock-warning-face)
+       ("^@\\(disable\\|manual\\|retmap=\\|cd=\\|tags=\\)" . 'font-lock-keyword-face)
+       )
+    '("/\\.upbuild$") ;; file pattern
+    '((lambda ()
+        (global-set-key "\C-c\C-r" 'recompile)))
+    "A mode for .upbuild files")
+  )
+```
