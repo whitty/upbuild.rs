@@ -114,7 +114,7 @@ impl Exec {
                     None => Some(d),
                 }
             },
-            None => main_working_dir.clone() // TODO clones
+            None => main_working_dir.clone()
         }
     }
 
@@ -138,7 +138,7 @@ impl Exec {
         let main_working_dir = Exec::relative_dir(path);
         self.show_entering(&main_working_dir);
 
-        let mut last_dir = main_working_dir.clone(); // TODO clones
+        let mut last_dir = main_working_dir.clone();
 
         let argv0 = &cfg.argv0;
         for cmd in &file.commands {
@@ -167,7 +167,7 @@ impl Exec {
 
             if run_dir != last_dir {
                 self.show_entering_always(&run_dir); // after initial cd always show any change
-                last_dir.clone_from(&run_dir); // TODO clones
+                last_dir.clone_from(&run_dir);
             }
 
             let local_env = self.runner.read_local_env(cmd.dotenv())?;

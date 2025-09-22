@@ -44,7 +44,7 @@ fn run() -> Result<()> {
         }
     );
 
-    let args: Vec<String> = args.collect(); // TODO - don't require conversion
+    let args: Vec<String> = args.collect();
     exec.run(upbuild_file.as_path(), &parsed_file, &cfg, &args)
 }
 
