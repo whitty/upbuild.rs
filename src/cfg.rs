@@ -47,7 +47,7 @@ impl Default for Config {
     }
 }
 
-fn apply_tags(arg: &str, add: &mut HashSet<String> , drop: &mut HashSet<String>) -> bool {
+fn apply_tags(arg: &str, add: &mut HashSet<String>, drop: &mut HashSet<String>) -> bool {
     match arg.split_once('=') {
         Some((_, arg)) => {
             if !arg.is_empty() {
@@ -113,7 +113,7 @@ fn generate_bash_completion_(template: &str) -> String {
                 line.to_string()
             }
         })
-        .fold(String::with_capacity(template.len()), | mut a, b | {
+        .fold(String::with_capacity(template.len()), |mut a, b| {
             if !a.is_empty() {
                 a.push('\n');
             }
@@ -169,11 +169,11 @@ impl Config {
                     "" => { args.next(); break; },
                     _ => {
                         if arg.starts_with("--ub-select=") {
-                            if ! apply_tags(arg, &mut cfg.select, &mut cfg.reject) {
+                            if !apply_tags(arg, &mut cfg.select, &mut cfg.reject) {
                                 break;
                             }
                         } else if arg.starts_with("--ub-reject=") {
-                            if ! apply_tags(arg, &mut cfg.reject, &mut cfg.select) {
+                            if !apply_tags(arg, &mut cfg.reject, &mut cfg.select) {
                                 break;
                             }
                         } else {
@@ -197,10 +197,11 @@ mod tests {
     use super::*;
 
     fn args<const N: usize>(args: [&str; N]) -> std::vec::IntoIter<String> {
-        let v: Vec<String> =
-            ["upbuild"].into_iter()
+        let v: Vec<String> = ["upbuild"]
+            .into_iter()
             .chain(args)
-            .map(|x| x.to_string()).collect();
+            .map(|x| x.to_string())
+            .collect();
         v.into_iter()
     }
 

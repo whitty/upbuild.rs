@@ -39,8 +39,8 @@ mod fake_inode {
         #[test]
         fn fake_inode() {
             use super::Inode;
-            let i = Inode{};
-            let j = Inode{};
+            let i = Inode {};
+            let j = Inode {};
             assert_ne!(i, j);
             assert_ne!(i, i);
             assert_ne!(j, i);
@@ -55,21 +55,21 @@ const MAX_DEPTH: usize = 128;
 /// Locate the `.upbuild` file relative to  the given path (as string)
 pub fn find(start: &str) -> Result<PathBuf> {
     let mut curr = PathBuf::from(start);
-    if ! curr.is_dir() {
+    if !curr.is_dir() {
         return Err(Error::InvalidDir(curr.display().to_string()));
     }
 
     for _ in 0..MAX_DEPTH {
         curr.push(".upbuild");
         if curr.is_file() && readable(&curr) {
-            return Ok(curr)
+            return Ok(curr);
         }
         curr.pop();
 
         let i = inode(&curr);
         curr.push("..");
 
-        if ! curr.is_dir() {
+        if !curr.is_dir() {
             break;
         }
         if i == inode(&curr) {

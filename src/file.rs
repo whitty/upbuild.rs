@@ -87,12 +87,12 @@ impl Cmd {
         self.mkdir.as_ref().map(PathBuf::from)
     }
 
-    pub fn map_code(&self, c: RetCode) ->RetCode {
+    pub fn map_code(&self, c: RetCode) -> RetCode {
         *self.retmap.get(&c)
             .unwrap_or(&c)
     }
 
-    pub fn args(&self) -> &[String]  {
+    pub fn args(&self) -> &[String] {
         self.args.as_ref()
     }
 
@@ -112,14 +112,14 @@ impl Cmd {
             return false;
         }
 
-        if ! no_tags {
+        if !no_tags {
             // There are some tags - must match
             return !select_tags.is_disjoint(&self.tags);
         }
         true
     }
 
-    pub fn dotenv(&self) -> &[String]  {
+    pub fn dotenv(&self) -> &[String] {
         self.dotenvs.as_ref()
     }
 }
@@ -138,7 +138,7 @@ enum Line {
     HeaderFlag(HeaderFlags),
     HeaderSeparator,
     Comment,
-    End
+    End,
 }
 
 impl Header {
@@ -152,7 +152,7 @@ impl Header {
         }
     }
 
-    pub fn dotenv(&self) -> &[String]  {
+    pub fn dotenv(&self) -> &[String] {
         self.dotenvs.as_ref()
     }
 }
@@ -196,12 +196,12 @@ fn parse_line(l: &str) -> Result<Line> {
                     ("env", f) => Ok(Line::HeaderFlag(HeaderFlags::Env(f.to_string()))),
                     ("disable", "") => Ok(Line::Flag(Flags::Disable)),
                     ("manual", "") => Ok(Line::Flag(Flags::Manual)),
-                    (&_, _) => Err(Error::InvalidTag(l.to_string()))
+                    (&_, _) => Err(Error::InvalidTag(l.to_string())),
                 }
             } else {
                 Ok(Line::Arg(l.to_string()))
             }
-        }
+        },
     }
 }
 
@@ -215,7 +215,7 @@ fn split_flag(l: &str) -> Result<(&str, &str)> {
 enum HeaderDetectState {
     InHeader,
     InBody,
-    Unknown // We don't know yet
+    Unknown, // We don't know yet
 }
 
 impl ClassicFile {
@@ -224,7 +224,7 @@ impl ClassicFile {
     pub fn parse_lines<I, T>(lines: I) -> Result<ClassicFile>
     where
         I: Iterator<Item=T>,
-        T: std::borrow::Borrow<str>
+        T: std::borrow::Borrow<str>,
     {
         let mut entry: Option<Cmd> = None;
         let mut entries: Vec<Cmd> = Vec::new();
@@ -267,7 +267,7 @@ impl ClassicFile {
                                 Flags::Mkdir(dir) => cmd.mkdir = Some(dir),
                             }
                         },
-                        None => { Err(Error::FlagBeforeCommand(format!("{:?}", f)))? },
+                        None => Err(Error::FlagBeforeCommand(format!("{:?}", f)))?,
                     }
                 },
 
@@ -293,8 +293,8 @@ impl ClassicFile {
                                     Some(ref mut cmd) => {
                                         cmd.append_dotenv(e);
                                         continue; // avoid further header processing (avoid the borrow checker at least)
-                                    }
-                                    None => { Err(Error::FlagBeforeCommand(format!("@env={}", e)))? },
+                                    },
+                                    None => Err(Error::FlagBeforeCommand(format!("@env={}", e)))?,
                                 }
                             } else {
                                 Err(Error::InvalidHeaderField(String::from("Header field not allowed here")))?;
@@ -306,7 +306,7 @@ impl ClassicFile {
                     match header_flags {
                         HeaderFlags::Env(e) => {
                             header.append_dotenv(e);
-                        }
+                        },
                     }
                 },
             }
@@ -317,7 +317,7 @@ impl ClassicFile {
             None => Err(Error::EmptyEntry)?,
         }
 
-        Ok(ClassicFile{
+        Ok(ClassicFile {
             header,
             commands: entries,
         })
@@ -328,7 +328,7 @@ impl ClassicFile {
     pub fn add<I, T>(provided_args: I, path: PathBuf) -> Result<()>
     where
         I: Iterator<Item=T>,
-        T: std::borrow::Borrow<str>
+        T: std::borrow::Borrow<str>,
     {
         use std::io::{Seek, Write, SeekFrom};
 
@@ -340,7 +340,8 @@ impl ClassicFile {
             let mut f = std::fs::File::options()
                 .create(true)
                 .truncate(false)
-                .write(true).open(path)?;
+                .write(true)
+                .open(path)?;
 
             let pos = f.seek(SeekFrom::End(0))?;
 
@@ -429,7 +430,7 @@ mod tests {
         assert!(parse_retmap("@tags").is_err());
     }
 
-    fn parse_(s: &str) -> Result<ClassicFile>  {
+    fn parse_(s: &str) -> Result<ClassicFile> {
         // basic test structure - printing in case of failure
         println!("'{}'", s);
         let file = ClassicFile::parse_lines(s.lines());
@@ -595,12 +596,12 @@ log.txt
         assert_eq!(cmd.out_file(), Some(PathBuf::from("log.txt")));
 
         for (v, exp) in [
-            (0,0),
-            (1,0),
-            (2,2),
-            (-1,-1),
-            (10000,10000),
-            (-10000,-10000),
+            (0, 0),
+            (1, 0),
+            (2, 2),
+            (-1, -1),
+            (10000, 10000),
+            (-10000, -10000),
         ] {
             assert_eq!(cmd.map_code(v), exp, "Mapping {} expected {}", v, exp);
         }

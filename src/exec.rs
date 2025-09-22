@@ -13,12 +13,12 @@ pub type RetCode = isize;
 
 /// Create a normal runner for [`Exec`] that actually runs the commands
 pub fn process_runner() -> Box<dyn Runner> {
-   Box::<ProcessRunner>::default()
+    Box::<ProcessRunner>::default()
 }
 
 /// Create a runner for [`Exec`] that just prints the commands
 pub fn print_runner() -> Box<dyn Runner> {
-   Box::new(PrintRunner {})
+    Box::new(PrintRunner {})
 }
 
 /// The Exec struct implements the actual iteration through the
@@ -84,7 +84,7 @@ impl Exec {
             if parent == Path::new(".") || parent == Path::new("") {
                 return None;
             }
-            return Some(parent.into())
+            return Some(parent.into());
         }
         None
     }
@@ -114,7 +114,7 @@ impl Exec {
                     None => Some(d),
                 }
             },
-            None => main_working_dir.clone()
+            None => main_working_dir.clone(),
         }
     }
 
@@ -142,7 +142,7 @@ impl Exec {
 
         let argv0 = &cfg.argv0;
         for cmd in &file.commands {
-            if ! cmd.enabled_with_reject(&cfg.select, &cfg.reject) {
+            if !cmd.enabled_with_reject(&cfg.select, &cfg.reject) {
                 continue;
             }
             let args = Self::with_args(cmd.args(), provided_args,
@@ -343,7 +343,7 @@ const COMMENT: &str = "rem";
 
 impl Runner for PrintRunner {
     fn run(&self, cmd: Vec<String>, _cd: &Option<PathBuf>, env: Vars) -> Result<RetCode> {
-        if ! env.is_empty() {
+        if !env.is_empty() {
             // TODO env? set?
             println!("{} Apply environment: {}", COMMENT,
              env.into_iter()
@@ -433,7 +433,7 @@ mod tests {
 
     #[derive(Debug)]
     struct TestRunner {
-        data: Rc<RefCell<TestData>>
+        data: Rc<RefCell<TestData>>,
     }
 
     impl TestRunner {
@@ -508,12 +508,12 @@ mod tests {
             self
         }
 
-        fn select<const N: usize>(&mut self, tags: [&str ;N]) -> &mut Self {
+        fn select<const N: usize>(&mut self, tags: [&str; N]) -> &mut Self {
             self.cfg.select = HashSet::from(tags.map(|x| x.to_string()));
             self
         }
 
-        fn reject<const N: usize>(&mut self, tags: [&str ;N]) -> &mut Self {
+        fn reject<const N: usize>(&mut self, tags: [&str; N]) -> &mut Self {
             self.cfg.reject = HashSet::from(tags.map(|x| x.to_string()));
             self
         }
@@ -543,7 +543,7 @@ mod tests {
 
         fn run_<F>(&self, file_data: &str, f: F, expected_result: Result<()>) -> &Self
         where
-            F: FnOnce(Exec, &ClassicFile) -> Result<()>
+            F: FnOnce(Exec, &ClassicFile) -> Result<()>,
         {
             let file = ClassicFile::parse_lines(file_data.lines()).unwrap();
             let runner = Box::new(TestRunner::new(self.test_data.clone()));
@@ -559,14 +559,14 @@ mod tests {
                             Error::ExitWithExitCode(c) => {
                                 assert_eq!(c, exp_c);
                             },
-                            _ => panic!("unmatched exit code {:?}", err)
+                            _ => panic!("unmatched exit code {:?}", err),
                         }
                     } else if let Error::ExitWithSignal(exp_sig) = err {
                         match ret {
                             Error::ExitWithSignal(sig) => {
                                 assert_eq!(sig, exp_sig);
                             },
-                            _ => panic!("unmatched exit signal {:?}", err)
+                            _ => panic!("unmatched exit signal {:?}", err),
                         }
                     } else {
                         panic!("handled unexpected error {:?}", err)
@@ -1086,7 +1086,11 @@ mod tests {
     #[test]
     fn process_runner_win32_dir_test() {
         let p = ProcessRunner::default();
-        let (comm, path) = if cfg!(windows) { (".\\run.bat", "tests/win/") } else { ("./run.sh", "tests/sh/") };
+        let (comm, path) = if cfg!(windows) {
+            (".\\run.bat", "tests/win/")
+        } else {
+            ("./run.sh", "tests/sh/")
+        };
         let res = p.run_with_def_env(args_vec([comm]), &some_path(path));
         println!("res={:?}", res);
         assert_eq!(res.expect("expected OK"), 0);
@@ -1120,7 +1124,11 @@ mod tests {
     #[test]
     fn process_runner_arg_test() {
         let p = ProcessRunner::default();
-        let (comm, path) = if cfg!(windows) { (".\\run.bat", "tests/win/") } else { ("./run.sh", "tests/sh/") };
+        let (comm, path) = if cfg!(windows) {
+            (".\\run.bat", "tests/win/")
+        } else {
+            ("./run.sh", "tests/sh/")
+        };
         let res = p.run_with_def_env(args_vec([comm, "1"]), &some_path(path));
         println!("res={:?}", res);
         assert_eq!(res.expect("expected OK(1)"), 1);
