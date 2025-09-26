@@ -1,3 +1,15 @@
+upbuild.rs (0.14.0-0) unstable; urgency=medium
+
+  * Add bash-completion support
+
+ -- Greg Whiteley <greg.whiteley@gmail.com>  Fri, 26 Sep 2025 22:47:44 +1000
+
+upbuild.rs (0.13.0-0) unstable; urgency=medium
+
+  * Local env support
+
+ -- Greg Whiteley <greg.whiteley@gmail.com>  Fri, 22 Aug 2025 22:05:23 +1000
+
 upbuild.rs (0.12.0-0) unstable; urgency=medium
 
   * Add global @env support
