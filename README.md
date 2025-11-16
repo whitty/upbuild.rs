@@ -49,6 +49,59 @@ Some ideas:
  * Specify a script like vcvars?  - that set up environment variables
  * Specify a script runner as alternative to shell.
 
+## Add option to pass (or filter) reject/selects to recursive calls
+
+Usecase
+
+```sh
+$ cat subproject1/.upbuild
+cmake
+@manual
+@tags=fresh
+-B
+build
+-S
+.
+--fresh
+&&
+cmake
+--build
+build
+--
+--
+-j8
+&&
+ctest
+@tags=test
+build
+
+$ cat .upbuild
+upbuild
+@cd=subproject1
+&&
+ctest
+@tags=test
+local
+
+# Should be possible to do
+$ upbuild --ub-select=test
+# and run test in subproject and local
+```
+
+
+Ideas:
+
+```
+upbuild
+@cd=/some/other/directory
+@tags=recurse
+# @passtag could pass all/reject/select?
+@passtag=all
+# or alternatively select tags that if reject/selected, should be passed through in the same manner?
+@passtag=norun
+```
+
+
 # Upbuild
 
 Simple directory tree build helper
