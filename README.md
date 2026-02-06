@@ -101,6 +101,14 @@ upbuild
 @passtag=norun
 ```
 
+## Allow definition of select/reject flags in the header banner
+
+Use-case:
+
+Some days your work means skipping some slower steps, so writing it
+once instead of on each command-line could help.
+
+Could also cause surprises when buried in files, so think carefully.
 
 # Upbuild
 
