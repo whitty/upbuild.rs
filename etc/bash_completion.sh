@@ -2,11 +2,16 @@
 
 _upbuild()
 {
-  IFS=$'\n'
+  local fail_exit
+  local OLDIFS="$IFS"
+
   local cur prev words cword split # needed by _init_completion()
   # Do not treat = as word breaks even if they are in $COMP_WORDBREAKS:
   # Split option=value into option in $prev and value in $cur
-  _init_completion -s || return
+  IFS=$'\n'
+  _init_completion -s || fail_exit=true
+  IFS="$OLDIFS"
+  [ -z "${fail_exit}" ] || return
 
   case $prev in
     '--ub-select'|'--ub-reject')
