@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// (C) Copyright 2024-2025 Greg Whiteley
+// (C) Copyright 2024-2026 Greg Whiteley
 
 use super::exec::RetCode;
 
@@ -20,13 +20,20 @@ pub enum Error {
     UnableToReadOutfile(String, std::io::Error),
     FailedToHandleDotEnv(String, dotenvy::Error),
     FailedToHandleDotEnvLineParse(String, String, usize),
+    FailedToHandleDotEnvLineParseKnownIssues(String, String, usize),
 }
 
 pub(crate) fn from_dotenvy(file: String, e: dotenvy::Error) -> Error {
     // Map the ugly parse error message to something a little less bad
     match e {
-        dotenvy::Error::LineParse(s, ix) =>
-            Error::FailedToHandleDotEnvLineParse(file.to_string(), s, ix),
+        dotenvy::Error::LineParse(s, ix) => {
+            // TODO triggers on both single and double backslash :(
+            if s.contains('\\') || s.contains(' ') {
+                return Error::FailedToHandleDotEnvLineParseKnownIssues(file.to_string(), s, ix);
+            }
+            Error::FailedToHandleDotEnvLineParse(file.to_string(), s, ix)
+        },
+
         _ => Error::FailedToHandleDotEnv(file.to_string(), e),
     }
 }
@@ -64,6 +71,8 @@ impl std::fmt::Display for Error {
                 write!(f, "Failure handling @env={}: {}", file, e),
             Error::FailedToHandleDotEnvLineParse(file, line, e) =>
                 write!(f, "Failure handling @env={}: Error parsing line: '{}' at character {}", file, line, e),
+            Error::FailedToHandleDotEnvLineParseKnownIssues(file, line, e) =>
+                write!(f, "Failure handling @env={}: Error parsing line: '{}' at character {} - backslashes and spaces can be achieved with single quotes", file, line, e),
         }
     }
 }
@@ -76,7 +85,8 @@ impl std::error::Error for Error {
             Error::InvalidHeaderField(_) |
             Error::NoCommands | Error::ExitWithExitCode(_) |
             Error::ExitWithSignal(_) | Error::InvalidDir(_) | Error::NotFound(_) |
-            Error::UnableToReadOutfile(_, _) | Error::FailedToHandleDotEnvLineParse(_, _, _)
+            Error::UnableToReadOutfile(_, _) | Error::FailedToHandleDotEnvLineParse(_, _, _) |
+            Error::FailedToHandleDotEnvLineParseKnownIssues(_, _, _)
 
                 => None,
 

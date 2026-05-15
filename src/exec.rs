@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// (C) Copyright 2024-2025 Greg Whiteley
+// (C) Copyright 2024-2026 Greg Whiteley
 
 use super::{Error, Result, Config};
 use super::file::ClassicFile;
@@ -171,6 +171,13 @@ impl Exec {
             }
 
             let local_env = self.runner.read_local_env(cmd.dotenv())?;
+            // What an absolute mess - just trying to return the first error
+            let (errs, local_env) : (Vars, Vars) =
+                 local_env.into_iter().partition(|x| x.is_err());
+            if let Some(first_err) = errs.into_iter().map(|x| x.map(|_| ())).next() {
+                return first_err;
+            }
+
             let code = self.runner.run(args, &run_dir, local_env)?;
             let c = cmd.map_code(code);
             if c != 0 {
@@ -480,9 +487,12 @@ mod tests {
             Ok(())
         }
 
+        // TODO need to wire in ability to return some values and errors
+        // because run didn't used to stop
         fn read_local_env(&self, _dotenvs: &[String]) -> Result<Vars> {
             //!todo!("Need to wire in test machinery? or simplify this call away");
-            Ok(vec![])
+            todo!("need to wire in ability to return some values and errors")
+            // Ok(vec![])
         }
     }
 
