@@ -404,7 +404,7 @@ impl Runner for PrintRunner {
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::{RefCell, RefMut}, collections::{HashSet, VecDeque}, rc::Rc};
+    use std::{cell::{RefCell, RefMut}, collections::{HashMap, HashSet, VecDeque}, io, rc::Rc};
 
     use super::*;
 
@@ -413,6 +413,23 @@ mod tests {
         cmd: Vec<String>,
         cd: Option<PathBuf>,
         env: Vec<(String, String)>,
+    }
+
+    // Var is unclonable, make something similar, but clonable
+    #[derive(Debug, Clone)]
+    enum VarLike {
+        Result((String,String)),
+        FailLineParse((/*line*/ String, /*pos*/ usize)),
+        // FailOther,
+    }
+
+    impl VarLike {
+        fn result(n: &str, v: &str) -> VarLike {
+            VarLike::Result((n.to_owned(), v.to_owned()))
+        }
+        fn fail_line_parse(line: &str, col: usize) -> VarLike {
+            VarLike::FailLineParse((line.to_owned(), col))
+        }
     }
 
     #[derive(Default, Debug)]
@@ -424,6 +441,8 @@ mod tests {
         mkdir: VecDeque<PathBuf>,
         global_dotenv: VecDeque<String>,
         default_dotenv: VecDeque<String>,
+        local_dotenv: VecDeque<String>,
+        dotenv_result: HashMap<String, Vec<VarLike>>,
     }
 
     impl TestData {
@@ -435,6 +454,8 @@ mod tests {
             self.mkdir.clear();
             self.global_dotenv.clear();
             self.default_dotenv.clear();
+            self.local_dotenv.clear();
+            self.dotenv_result.clear();
         }
     }
 
@@ -487,12 +508,30 @@ mod tests {
             Ok(())
         }
 
-        // TODO need to wire in ability to return some values and errors
-        // because run didn't used to stop
-        fn read_local_env(&self, _dotenvs: &[String]) -> Result<Vars> {
-            //!todo!("Need to wire in test machinery? or simplify this call away");
-            todo!("need to wire in ability to return some values and errors")
-            // Ok(vec![])
+        fn read_local_env(&self, dotenvs: &[String]) -> Result<Vars> {
+            let mut data = self.data.borrow_mut();
+
+            let mut ret: Vars = vec![];
+            for dotenv_file in dotenvs {
+                data.local_dotenv.push_back(dotenv_file.clone());
+
+                if let Some(results) = data.dotenv_result.get(dotenv_file) {
+                    for r in results {
+                        ret.push(match r {
+                            VarLike::Result(r) => Ok(r.clone()),
+                            VarLike::FailLineParse(details) =>
+                                Err(Error::FailedToHandleDotEnvLineParse(dotenv_file.clone(), details.0.clone(), details.1)),
+                        })
+                    }
+                } else {
+                    // file not found
+                    return Err(from_dotenvy(
+                        dotenv_file.clone(),
+                        dotenvy::Error::Io(io::Error::new(io::ErrorKind::NotFound, "not found"))
+                    ));
+                }
+            }
+            Ok(ret)
         }
     }
 
@@ -537,6 +576,12 @@ mod tests {
             self
         }
 
+        fn add_dotenv_result(&self, name: String, result: &[VarLike]) -> &Self {
+            let mut data: RefMut<'_, _> = self.test_data.borrow_mut();
+            data.dotenv_result.insert(name, result.into_iter().cloned().collect());
+            self
+        }
+
         fn run<const N: usize>(&self, file_data: &str, provided_args: [&str; N], expected_result: Result<()>) -> &Self {
             let provided_args: Vec<String> = provided_args.into_iter().map(String::from).collect();
             self.run_(file_data, |e,f| e.run(Path::new(".upbuild"), f, &self.cfg, &provided_args), expected_result)
@@ -578,8 +623,24 @@ mod tests {
                             },
                             _ => panic!("unmatched exit signal {:?}", err),
                         }
+                    } else if let Error::FailedToHandleDotEnv(exp_file, _) = &err {
+                        match ret {
+                            Error::FailedToHandleDotEnv(file, _) => {
+                                assert_eq!(&file, exp_file);
+                            },
+                            _ => panic!("unmatched exit signal {:?}", err),
+                        }
+                    } else if let Error::FailedToHandleDotEnvLineParse(exp_file, exp_line, exp_col) = &err {
+                        match ret {
+                            Error::FailedToHandleDotEnvLineParse(file, line, col) => {
+                                assert_eq!(&file, exp_file);
+                                assert_eq!(&line, exp_line);
+                                assert_eq!(&col, exp_col);
+                            },
+                            _ => panic!("unmatched exit signal {:?}", ret),
+                        }
                     } else {
-                        panic!("handled unexpected error {:?}", err)
+                        panic!("unexpected 'expected' error {:?} recieved {:?}", err, ret)
                     }
                 },
             }
@@ -640,6 +701,8 @@ mod tests {
             assert!(data.mkdir.is_empty(), "Didn't exhaust mkdir {:#?}", data.mkdir);
             assert!(data.global_dotenv.is_empty(), "Didn't exhaust global_dotenv {:#?}", data.global_dotenv);
             assert!(data.default_dotenv.is_empty(), "Didn't exhaust default_dotenv {:#?}", data.default_dotenv);
+            assert!(data.local_dotenv.is_empty(), "Didn't exhaust local_dotenv {:#?}", data.local_dotenv);
+            // data.dotenv_result doesn't exhaust - consider adding a lookaside
         }
 
         fn done(&self) {
@@ -659,6 +722,14 @@ mod tests {
             let mut data: RefMut<'_, _> = self.test_data.borrow_mut();
             println!("default_dotenv - popped {}", data.default_dotenv.is_empty());
             let s = data.default_dotenv.pop_front().expect("Expected results");
+            assert_eq!(s, expected);
+            self
+        }
+
+        fn verify_local_dotenv(&self, expected: &str) -> &Self {
+            let mut data: RefMut<'_, _> = self.test_data.borrow_mut();
+            println!("local_dotenv - popped {}", data.local_dotenv.is_empty());
+            let s = data.local_dotenv.pop_front().expect("Expected results");
             assert_eq!(s, expected);
             self
         }
@@ -1183,5 +1254,47 @@ mod tests {
         assert_eq!(Exec::run_dir(&main_working_dir, None), some_path("b"));
         assert_eq!(Exec::run_dir(&main_working_dir, Some("..".into())), some_path("b/.."));
         assert_eq!(Exec::run_dir(&main_working_dir, Some("/a".into())), some_path("/a"));
+    }
+
+    #[test]
+    fn env_handling() {
+        // Test we can do pass through local .env results
+        let file_data = include_str!("../tests/dotenv2.upbuild");
+        TestRun::new()
+            .add_return_data(Ok(0))
+            .add_dotenv_result(".env2".to_owned(), &[VarLike::result("NAME", "value")])
+            .run_without_args(file_data, Ok(()))
+            .verify_return_data_with_env(["make", "tests"], None,
+                                         [("NAME".to_owned(), "value".to_owned())])
+            .verify_global_dotenv(".env")
+            .verify_local_dotenv(".env2")
+            .done();
+
+        // and especially that we pass failures out
+        TestRun::new()
+            .add_dotenv_result(".env2".to_owned(), &[
+                VarLike::result("NAME", "value"),
+                VarLike::fail_line_parse("NAME2=foo\\bar", 9), // dontenvy hates backslashes
+            ])
+            .run_without_args(
+                file_data,
+                Err(Error::FailedToHandleDotEnvLineParse(
+                    ".env2".to_owned(), "NAME2=foo\\bar".to_owned(), 9)
+                ))
+            .verify_global_dotenv(".env")
+            .verify_local_dotenv(".env2")
+            .done();
+
+        // local dotenv file not readable
+        TestRun::new()
+            .run_without_args(
+                file_data,
+                Err(from_dotenvy(
+                    ".env2".to_owned(),
+                    dotenvy::Error::Io(io::Error::new(io::ErrorKind::NotFound, "not found"))
+                )))
+            .verify_global_dotenv(".env")
+            .verify_local_dotenv(".env2")
+            .done();
     }
 }
