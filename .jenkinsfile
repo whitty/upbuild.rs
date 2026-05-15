@@ -1,4 +1,5 @@
 def build_os_vers = ["20.04", "22.04", "24.04", "26.04"]
+def bats_os_vers = ["24.04", "26.04"] // drop older bats tests
 def deb_os_vers = ["24.04", "26.04"]
 def wine_os_vers = ["24.04", "26.04"]
 
@@ -16,7 +17,10 @@ for (ver in build_os_vers) {
         stage("${version}-preparation") {
           src = checkout(scm)
 
-          def deps = "bats";
+          def deps = "";
+          if (version in bats_os_vers) {
+            deps += " bats"
+          }
           if (version in wine_os_vers) {
             deps += " mingw-w64 wine64 wine"
           }
@@ -51,14 +55,16 @@ for (ver in build_os_vers) {
           }
         }
 
-        stage("${version}-bats") {
-          warnError("run") {
-            def bat_env = ""
-            if (!(version in wine_os_vers)) {
-              bat_env="env NOWINE=true "
-            }
+        if (version in bats_os_vers) {
+          stage("${version}-bats") {
+            warnError("run") {
+              def bat_env = ""
+              if (!(version in wine_os_vers)) {
+                bat_env="env NOWINE=true "
+              }
 
-            sh "${bat_env}bats ./tests"
+              sh "${bat_env}bats ./tests"
+            }
           }
         }
 
