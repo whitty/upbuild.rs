@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # (C) Copyright 2024 Greg Whiteley
 
+bats_require_minimum_version 1.5.0
+
 setup_file() {
   if [ -z "$UPBUILD_OVERRIDE" ]; then
     # ensure we have up to date build
@@ -729,4 +731,49 @@ EOF
 bar=yyy
 foo=woo
 bar=yyy" ]
+}
+
+@test "specific @env failures" {
+  cat > .upbuild <<EOF
+@env=.env1
+@---
+bash
+@env=.env2
+-c
+echo foo=\$foo; echo bar=\$bar
+EOF
+  cat .upbuild
+
+  run -1 "$upbuild"
+  echo "${output}" | grep -q "Failure handling @env=.env1: path not found"
+
+  cat > .env1 <<EOF
+foo=bar
+EOF
+
+  run -1 "$upbuild"
+  echo "${output}" | grep -q "Failure handling @env=.env2: path not found"
+
+  cat > .env2 <<EOF
+bar=xxx
+EOF
+
+  run -0 "$upbuild"
+  [ "$output" = "foo=bar
+bar=xxx" ]
+
+  cat > .env2 <<EOF
+bar=x\\xx
+EOF
+
+  run -1 "$upbuild"
+  echo $output | grep -q "Failure handling @env=.env2: Error parsing line: '.*' at character 2"
+
+  cat > .env2 <<EOF
+bar='x\\xx'
+EOF
+
+  run -0 "$upbuild"
+  [ "$output" = "foo=bar
+bar=x\\xx" ]
 }

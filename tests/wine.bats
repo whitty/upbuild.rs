@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # (C) Copyright 2024 Greg Whiteley
 
+bats_require_minimum_version 1.5.0
+
 ## TODO - merge with simple??
 
 export WINEDEBUG=-all
@@ -87,7 +89,13 @@ teardown() {
 }
 
 run_win() {
-  run "$wine" "$@"
+  # support for return code value
+  arg=
+  if [ "${1#-}" != "$1" ]; then
+    arg=$1
+    shift
+  fi
+  run $arg "$wine" "$@"
   output=$(echo "$output" | tr -d "\r")
   # This monstrosity should re-split output into lines[]
   # it return failure on EOF of output (hence ||true)
@@ -747,4 +755,49 @@ EOF
 bar=yyy
 foo=woo
 bar=yyy" ]
+}
+
+@test "specific @env failures" {
+  cat > .upbuild <<EOF
+@env=.env1
+@---
+cmd
+/c
+@env=.env2
+echo foo=%foo%&& echo bar=%bar%
+EOF
+  cat .upbuild
+
+  run_win -1 "$upbuild"
+  echo "${output}" | grep -q "Failure handling @env=.env1: path not found"
+
+  cat > .env1 <<EOF
+foo=bar
+EOF
+
+  run_win -1 "$upbuild"
+  echo "${output}" | grep -q "Failure handling @env=.env2: path not found"
+
+  cat > .env2 <<EOF
+bar=xxx
+EOF
+
+  run_win -0 "$upbuild"
+  [ "$output" = "foo=bar
+bar=xxx" ]
+
+  cat > .env2 <<EOF
+bar=x\\xx
+EOF
+
+  run_win -1 "$upbuild"
+  echo $output | grep -q "Failure handling @env=.env2: Error parsing line: '.*' at character 2"
+
+  cat > .env2 <<EOF
+bar='x\\xx'
+EOF
+
+  run_win -0 "$upbuild"
+  [ "$output" = "foo=bar
+bar=x\\xx" ]
 }
