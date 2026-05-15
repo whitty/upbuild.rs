@@ -7,39 +7,6 @@ and should exist as an aspirational product definition.
 
 # Proposed changes
 
-## Add a "global" header section
-
-Add a header section
-
-```
-# This is the header section for global stuff
-@---
-ls
-# this is the normal section
--la
-```
-
-## Environment variable support
-
-1. Add support for nominating a `.env` like file.  By default this
-   will not be called `.env` to avoid interactions with other systems.
-   Probably `.upbuild.env` would make sense.
-
-   `@env=my.env` could be used to change the name or add additional
-   ones
-
-   Multiple definitions would add multiple - loaded in definition
-   order.
-
-   `.upbuild.env` is loaded by default if no `@env` stanza in header -
-   unless `--ub-no-env` is specified, to disable the default handling.
-   `@env` stanzas are still honoured.
-
-2. If defined in the global section its set before all runs and
-   applies globally.
-3. If defined in a command section it only applies for that command
-   and changes should be reverted at the end
-
 ## Wrapper support
 
 Add support for wrapper scripts.  Not 100% sure what this might mean.
@@ -129,6 +96,26 @@ Upbuild looks back toward the root of your directory tree until it
 finds a `.upbuild` file to run.  The directory that the command-file
 is found in becomes the working directory for the command defined in
 the file.
+
+### Header Section
+
+An optional header section can be added at the top of the `.upbuild` file to define global settings that apply to all commands.  The header section must appear before the first command and is terminated by the `@---` separator.
+
+Currently the only supported header directive is `@env=<file>` to specify environment files that apply globally to all commands.
+
+Example:
+
+```
+@env=.env.global
+@---
+make
+tests
+&&
+make
+install
+```
+
+In this example, the `.env.global` file will be loaded before running both the `make tests` and `make install` commands.
 
 ### Passing arguments from command-line
 
@@ -371,6 +358,23 @@ I use this workflow to help with `cmake`:
 
 To rerun `cmake` itself run `upbuild --ub-select=fresh`
 
+### Environment variable support
+
+By default `upbuild` will load `.upbuild.env` from the current directory before running commands.  This can be disabled with `--ub-no-env`.
+
+Additional environment files can be specified in the header section (before `@---`) or per-command:
+
+```
+@env=my.env
+@---
+make
+@env=.env.local
+tests
+```
+
+Environment variables defined in the header section apply globally to all commands.  Environment variables defined in a command section only apply to that specific command.
+
+Note: Environment variable loading is not supported when using `--ub-print`.
 
 ### Quickly adding new commands
 
